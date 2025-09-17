@@ -1,9 +1,9 @@
 package soc.base
 
 import shapeless.Coproduct
-import soc.core.{BoardHex, Hex, Resource, SOCBoard, Vertex}
+import soc.core.{BoardHex, Hex, Port, Resource, SOCBoard, Vertex}
 
-case class BaseBoard[Res](hexes: List[Hex[Res]])
+case class BaseBoard[Res](hexes: List[Hex[Res]], ports: List[Port])
 
 object BaseBoard {
 
@@ -31,13 +31,10 @@ object BaseBoard {
     18 -> List(53, 48, 49, 50, 51, 52)
   )
 
-  implicit val baseBoard = new SOCBoard[Resource, BaseBoard[Resource]] {
-
-    override def hexesWithNodes(t: BaseBoard[Resource]): Seq[BoardHex[Resource]] = {
-      val vertexMap = baseVertexMap.view.mapValues(_.map(Vertex)).toMap
-      t.hexes.zipWithIndex.map { case (hex: Hex[Resource], node: Int) =>
-        BoardHex(node, hex, vertexMap(node)) // TODO: unsafe
-      }
+  implicit val baseBoard: SOCBoard[Resource, BaseBoard[Resource]] = (t: BaseBoard[Resource]) => {
+    val vertexMap = baseVertexMap.view.mapValues(_.map(Vertex)).toMap
+    t.hexes.zipWithIndex.map { case (hex: Hex[Resource], node: Int) =>
+      BoardHex(node, hex, vertexMap(node)) // TODO: unsafe
     }
   }
 

@@ -1,6 +1,7 @@
 package soc.core
 
-import game.{InventorySet, StateInitializer}
+import game.ImmutableGame.StateInitializer
+import game.InventorySet
 import shapeless.Coproduct
 
 package object state {
@@ -9,9 +10,11 @@ package object state {
 
   case class PlayerBuilding[BB <: Coproduct](building: BB, player: Int)
 
+  case class MoveCount(count: Int)
+
   type BoardBuildingState[BB <: Coproduct, T] = Map[T, PlayerBuilding[BB]]
-  type VertexBuildingState[BB <: Coproduct] = BoardBuildingState[BB, Vertex]
-  type EdgeBuildingState[BB <: Coproduct] = BoardBuildingState[BB, Edge]
+  type VertexBuildingState[BB <: Coproduct]   = BoardBuildingState[BB, Vertex]
+  type EdgeBuildingState[BB <: Coproduct]     = BoardBuildingState[BB, Edge]
 
   implicit def initBoardBuildingState[BB <: Coproduct, T]: StateInitializer[BoardBuildingState[BB, T]] = new StateInitializer[BoardBuildingState[BB, T]] {
     override def apply(): BoardBuildingState[BB, T] = Map.empty
@@ -27,7 +30,7 @@ package object state {
     }
   }
 
-  case class PlayerPoints(points: Map[Int, Int])
+  case class PlayerPoints(points: PlayerMap[Int])
 
   object PlayerPoints {
     implicit def initPlayerPoints(implicit ids: PlayerIds): StateInitializer[PlayerPoints] = new StateInitializer[PlayerPoints] {

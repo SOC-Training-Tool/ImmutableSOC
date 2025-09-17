@@ -116,7 +116,7 @@ object ResourceInventories {
       at { case (m, g) => m.get(g.player).fold(m)(i => m + (g.player -> i.subtract(g.set))) }
   }
 
-  implicit def convert[II, Super <: Coproduct, Sub <: Coproduct, Inv[_]](implicit inv: ResourceInventories[II, Super, Inv], embedder: Embedder[Super, Sub]) = new ResourceInventories[II, Sub, Inv] {
+  implicit def convert[II, Super <: Coproduct, Sub <: Coproduct, Inv[_]](implicit inv: ResourceInventories[II, Super, Inv], embedder: Embedder[Super, Sub]): ResourceInventories[II, Sub, Inv] = new ResourceInventories[II, Sub, Inv] {
     override def players(t: Inv[II]): Seq[Int] = inv.players(t)
 
     override def numCards(t: Inv[II], player: Int): Int = inv.numCards(t, player)

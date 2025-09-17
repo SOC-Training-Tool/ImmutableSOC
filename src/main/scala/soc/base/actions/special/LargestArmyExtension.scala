@@ -1,6 +1,6 @@
 package soc.base.actions.special
 
-import game.{ActionExtension, GameMoveResult}
+import game.{GameAction, GameMoveResult}
 import shapeless.{::, HNil}
 import soc.base.PlayKnightMove
 import soc.base.state.ops._
@@ -9,27 +9,19 @@ import soc.core.state.PlayerPoints
 import soc.core.state.ops.PointsOps
 import util.DependsOn
 
-object LargestArmyExtension {
+class LargestArmyExtension[R, M <: GameMoveResult.Aux[PlayKnightMove[R]]](minCount: Int) extends GameAction[M, LargestArmyPlayer :: PlayerArmyCount :: PlayerPoints :: HNil] {
 
-  def apply[M <: GameMoveResult.Aux[PlayKnightMove]] = {
-    new ActionExtension[M, LargestArmyPlayer :: PlayerArmyCount :: PlayerPoints :: HNil] {
-
-      override def apply(move: M, pre: STATE, post: STATE): STATE = {
-        implicit val pointsDep = DependsOn[STATE, PlayerPoints :: HNil]
-        implicit val armyDep = DependsOn[STATE, LargestArmyPlayer :: PlayerArmyCount :: HNil]
-        val player = move.move.player
-        val largestArmyPlayer = pre.largestArmyPlayer
-        val updatedArmyCount = {
-          val currArmySize = post.armyCount
-          PlayerArmyCount(currArmySize + (player -> (currArmySize.getOrElse(player, 0) + 1)))
-        }
-        val updatedArmyPlayer = updatedSpecialPlayer(3, largestArmyPlayer, updatedArmyCount.m)
-        val result = post.updateArmyCount(updatedArmyCount.m)
-        updateState[STATE](largestArmyPlayer, updatedArmyPlayer, result)(
-          _.incrementPointForPlayer(_),
-          _.decrementPointForPlayer(_),
-          _.updateLargestArmyPlayer(_))
-      }
+  override def apply(move: M, state: STATE): STATE = {
+    implicit val pointsDep = DependsOn[STATE, PlayerPoints :: HNil]
+    implicit val armyDep   = DependsOn[STATE, LargestArmyPlayer :: PlayerArmyCount :: HNil]
+    val player             = move.move.player
+    val largestArmyPlayer  = state.largestArmyPlayer
+    val updatedArmyCount = {
+      val currArmySize = state.armyCount
+      PlayerArmyCount(currArmySize + (player -> (currArmySize.getOrElse(player, 0) + 1)))
     }
+    val updatedArmyPlayer  = updatedSpecialPlayer(minCount, largestArmyPlayer, updatedArmyCount.m)
+    val result             = state.updateArmyCount(updatedArmyCount.m)
+    updateState[STATE](largestArmyPlayer, updatedArmyPlayer, result)(_.incrementPointForPlayer(_), _.decrementPointForPlayer(_), _.updateLargestArmyPlayer(_))
   }
 }

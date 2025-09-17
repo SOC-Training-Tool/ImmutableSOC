@@ -10,17 +10,17 @@ import soc.core.state.{Bank, VertexBuildingState}
 import soc.core.{ResourceInventories, RollDiceMoveResult, SOCBoard}
 import util.DependsOn
 
-object RollDiceAction {
+class RollDiceAction[II, VB <: Coproduct, BOARD, INV[_]](implicit
+    inv: ResourceInventories[II, PerfectInfo[II], INV],
+    socBoard: SOCBoard[II, BOARD],
+    vertexFolder: coproduct.Folder.Aux[ResourcesForBuildingPoly.type, VB, Int]
+) extends GameAction[RollDiceMoveResult, RobberLocation :: VertexBuildingState[VB] :: BOARD :: Bank[II] :: INV[II] :: HNil] {
 
-  def apply[II, VB <: Coproduct, BOARD, INV[_]]
-  (implicit inv: ResourceInventories[II, PerfectInfo[II], INV],
-   socBoard: SOCBoard[II, BOARD],
-   vertexFolder: coproduct.Folder.Aux[ResourcesForBuildingPoly.type, VB, Int]
-  ): GameAction[RollDiceMoveResult, RobberLocation :: VertexBuildingState[VB] :: BOARD :: Bank[II] :: INV[II] :: HNil] = {
-    GameAction[RollDiceMoveResult, RobberLocation :: VertexBuildingState[VB] :: BOARD :: Bank[II] :: INV[II] :: HNil] { case (move, state) =>
-      implicit val dep = DependsOn.single[RobberLocation :: VertexBuildingState[VB] :: BOARD :: Bank[II] :: INV[II] :: HNil]
-      state.distributeResources(state.getResourcesGainedOnRoll(move.result))
-    }
+  override def apply(
+      move: RollDiceMoveResult,
+      state: RobberLocation :: VertexBuildingState[VB] :: BOARD :: Bank[II] :: INV[II] :: HNil
+  ): RobberLocation :: VertexBuildingState[VB] :: BOARD :: Bank[II] :: INV[II] :: HNil = {
+    implicit val dep = DependsOn.single[RobberLocation :: VertexBuildingState[VB] :: BOARD :: Bank[II] :: INV[II] :: HNil]
+    state.distributeResources(state.getResourcesGainedOnRoll(move.result).gained)
   }
-
 }

@@ -5,9 +5,9 @@ import soc.core.{Edge, SOCBoard, Vertex}
 import soc.core.SOCBoard.SOCBoardOps
 import soc.core.state.{EdgeBuildingState, VertexBuildingState}
 
-private[soc] class LongestRoadOps [Res, BOARD, VB <: Coproduct, EB <: Coproduct]
-(board: BOARD, edgeBuildingMap: EdgeBuildingState[EB], vertexBuildingMap: VertexBuildingState[VB])
-(implicit socBoard: SOCBoard[Res, BOARD]) {
+private[soc] class LongestRoadOps[Res, BOARD, VB <: Coproduct, EB <: Coproduct](board: BOARD, edgeBuildingMap: EdgeBuildingState[EB], vertexBuildingMap: VertexBuildingState[VB])(implicit
+    socBoard: SOCBoard[Res, BOARD]
+) {
 
   private val playerIds = edgeBuildingMap.toSeq.map(_._2.player).distinct
 
@@ -16,7 +16,7 @@ private[soc] class LongestRoadOps [Res, BOARD, VB <: Coproduct, EB <: Coproduct]
   def calcLongestRoadLength(playerId: Int): Int = {
     val edges = edgeBuildingMap.toSeq.flatMap {
       case (edge, building) if building.player == playerId => Seq(edge)
-      case _ => Nil
+      case _                                               => Nil
     }
     calcLongestRoadLength(playerId, edges: _*)
   }
@@ -34,7 +34,8 @@ private[soc] class LongestRoadOps [Res, BOARD, VB <: Coproduct, EB <: Coproduct]
       }
 
       def fromVertex(vertex: Vertex): List[Vertex] = if (vertexBuildingMap.get(vertex).fold(true)(_.player == playerId)) {
-        board.neighboringVertices(vertex)
+        board
+          .neighboringVertices(vertex)
           .filterNot(v => visited.contains(Edge(vertex, v)))
           .filter(v => edgeBuildingMap.get(Edge(vertex, v)).fold(false)(_.player == playerId))
           .toList
@@ -42,7 +43,7 @@ private[soc] class LongestRoadOps [Res, BOARD, VB <: Coproduct, EB <: Coproduct]
 
       (fromVertex(v1), fromVertex(v2)) match {
         // see road scenario1
-        case (Nil, Nil) =>
+        case (Nil, Nil)      =>
           Math.max(visited.length, calcLongestRoadLengthRecur(playerId, stack.tail, visited))
 
         // see road scenario2
@@ -87,7 +88,7 @@ private[soc] class LongestRoadOps [Res, BOARD, VB <: Coproduct, EB <: Coproduct]
             calcLongestRoadLengthRecur(playerId, (l1, r2) :: stack.tail, Edge(l1, v1) :: Edge(r2, v2) :: visited),
             calcLongestRoadLengthRecur(playerId, (l2, r1) :: stack.tail, Edge(l2, v1) :: Edge(r1, v2) :: visited)
           ).max
-        case _ => throw new Exception("")
+        case _                                  => throw new Exception("")
       }
     }
   }

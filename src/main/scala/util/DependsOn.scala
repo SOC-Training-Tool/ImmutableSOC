@@ -1,6 +1,6 @@
 package util
 
-import shapeless.HList
+import shapeless.{::, HList, HNil}
 import shapeless.ops.hlist.{RemoveAll, Replacer, Selector}
 
 trait DependsOn[S, D <: HList] {
@@ -19,6 +19,18 @@ trait DependsOn[S, D <: HList] {
 }
 
 object DependsOn {
+
+  implicit class HListDependsOnOp[S <: HList](s: S) {
+
+    def updateWith[T](f: T => T)(implicit dep: DependsOn[S, T :: HNil]): S = dep.updateWith[T](s)(f)
+
+    def getAll[D <: HList](implicit dep: DependsOn[S, D]): D = dep.getAll(s)
+
+    def updateAll[D <: HList](f: D => D)(implicit dep: DependsOn[S, D]): S = dep.updateAll(s)(f)
+
+    def replaceAll[D <: HList](d: D)(implicit dep: DependsOn[S, D]): S = updateAll[D](_ => d)
+
+  }
 
   def single[L <: HList](implicit dependsOn: DependsOn[L, L]) = dependsOn
 
@@ -68,4 +80,7 @@ object DependsOn {
       override def updateAll(s: S)(f: D1 => D1): S = dp.updateAll(s)(d => inner.updateAll(d)(f))
     }
   }
+
+  //  implicit def inner[Super <: HList, Inner <: HList, Sub <: HList](implicit dep1: DependsOn[Super, Inner], dep2: DependsOn[Inner, Sub]): DependsOn[Super, Sub] =
+  //    dep1.innerDependency[Sub]
 }

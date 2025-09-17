@@ -1,12 +1,12 @@
 package soc
 
 
-import game.{InventorySet, StateInitializer}
-import shapeless.{:+:, ::, CNil, Coproduct, HList, HNil}
-import soc.core.ResourceInventories
+import game.InventorySet
+import shapeless.{:+:, CNil, Coproduct}
 import soc.core.Resources._
-import util.DependsOn
 package object core {
+
+  type PlayerMap[A] = Map[Int, A]
 
   case object Wood
 
@@ -18,7 +18,11 @@ package object core {
 
   case object Ore
 
+  case object Misc
+
   type Resource = Wood.type :+: Brick.type :+: Sheep.type :+: Wheat.type :+: Ore.type :+: CNil
+
+  type Port = Misc.type :+: Resource
 
   object Resources {
     val WOOD: Resource = Coproduct[Resource](Wood)
@@ -28,7 +32,17 @@ package object core {
     val ORE: Resource = Coproduct[Resource](Ore)
 
     val all: Seq[Resource] = WOOD :: BRICK :: SHEEP :: WHEAT :: ORE :: Nil
+  }
 
+  object Ports {
+    val WOOD: Port = Coproduct[Port](Wood)
+    val BRICK: Port = Coproduct[Port](Brick)
+    val SHEEP: Port = Coproduct[Port](Sheep)
+    val WHEAT: Port = Coproduct[Port](Wheat)
+    val ORE: Port = Coproduct[Port](Ore)
+    val MISC: Port = Coproduct[Port](Misc)
+
+    val all: Seq[Port] = WOOD :: BRICK :: SHEEP :: WHEAT :: ORE :: MISC :: Nil
   }
 
   object ResourceSet {

@@ -20,6 +20,10 @@ case class Edge(v1: Vertex, v2: Vertex) {
   override def hashCode: Int = (v1.node * v1.node) + (v2.node * v2.node)
 }
 
+object Edge {
+  def apply(v1: Int, v2: Int): Edge = Edge(Vertex(v1), Vertex(v2))
+}
+
 sealed trait Hex[+Res] {
   val getResourceAndNumber: Option[(Res, Int)]
   val getResource: Option[Res]

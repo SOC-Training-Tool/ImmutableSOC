@@ -8,12 +8,10 @@ import soc.core.state.ops._
 import soc.core.{DiscardMove, ResourceInventories}
 import util.DependsOn
 
-object DiscardAction {
+class DiscardAction[II, INV[_]](implicit inv: ResourceInventories[II, PerfectInfo[II], INV]) extends GameAction[DiscardMove[II], Bank[II] :: INV[II] :: HNil] {
 
-  def apply[II, INV[_]](implicit inv: ResourceInventories[II, PerfectInfo[II], INV]) = {
-    GameAction[DiscardMove[II], Bank[II] :: INV[II] :: HNil] { case (move, state) =>
-      implicit val dep = DependsOn.single[Bank[II] :: INV[II] :: HNil]
-      state.payToBank(move.player, move.set)
-    }
+  override def apply(move: DiscardMove[II], state: Bank[II] :: INV[II] :: HNil): Bank[II] :: INV[II] :: HNil = {
+    implicit val dep = DependsOn.single[Bank[II] :: INV[II] :: HNil]
+    state.payToBank(move.player, move.set)
   }
 }

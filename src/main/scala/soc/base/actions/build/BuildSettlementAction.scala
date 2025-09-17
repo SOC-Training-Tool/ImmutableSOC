@@ -10,20 +10,15 @@ import soc.core.{BuildSettlementMove, ResourceInventories, Settlement}
 import util.DependsOn
 import util.opext.Embedder
 
+class BuildSettlementAction[Res, Inv[_], VB <: Coproduct](cost: InventorySet[Res, Int])(implicit
+    inv: ResourceInventories[Res, PerfectInfo[Res], Inv],
+    settleEmbedder: Embedder[VB, Settlement.type :+: CNil]
+) extends GameAction[BuildSettlementMove, VertexBuildingState[VB] :: PlayerPoints :: Bank[Res] :: Inv[Res] :: HNil] {
 
-object BuildSettlementAction {
-
-  def apply[Res, Inv[_], VB <: Coproduct]
-  (cost: InventorySet[Res, Int])
-  (implicit inv: ResourceInventories[Res, PerfectInfo[Res], Inv],
-   settleEmbedder: Embedder[VB, Settlement.type :+: CNil]
-  ): GameAction[BuildSettlementMove, VertexBuildingState[VB] :: PlayerPoints :: Bank[Res] :: Inv[Res] :: HNil] = {
-    GameAction[BuildSettlementMove, VertexBuildingState[VB] :: PlayerPoints :: Bank[Res] :: Inv[Res] :: HNil] { case (move, state) =>
-      val dep = DependsOn.single[VertexBuildingState[VB] :: PlayerPoints :: Bank[Res] :: Inv[Res] :: HNil]
-      implicit val settlementDep = dep.innerDependency[VertexBuildingState[VB] :: PlayerPoints :: HNil]
-      implicit val invDep = dep.innerDependency[Bank[Res] :: Inv[Res] :: HNil]
-      state.placeSettlement(move.vertex, move.player).payToBank(move.player, cost)
-    }
+  override def apply(move: BuildSettlementMove, state: VertexBuildingState[VB] :: PlayerPoints :: Bank[Res] :: Inv[Res] :: HNil): VertexBuildingState[VB] :: PlayerPoints :: Bank[Res] :: Inv[Res] :: HNil = {
+    val dep              = DependsOn.single[VertexBuildingState[VB] :: PlayerPoints :: Bank[Res] :: Inv[Res] :: HNil]
+    implicit val settleDep = dep.innerDependency[VertexBuildingState[VB] :: PlayerPoints :: HNil]
+    implicit val invDep   = dep.innerDependency[Bank[Res] :: Inv[Res] :: HNil]
+    state.placeSettlement(move.vertex, move.player).payToBank(move.player, cost)
   }
-
 }

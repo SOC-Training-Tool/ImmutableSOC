@@ -1,8 +1,6 @@
 package soc.core
 
-import game.StateInitializer
 import soc.core.DevTransactions.{ImperfectInfoBuyCard, PerfectInfoBuyCard}
-import soc.core.state.PlayerIds
 
 trait BuyDevelopmentCard[T, Inv] {
   def apply(t: Inv, player: Int, turn: Int, transaction: T): Inv
@@ -26,9 +24,11 @@ trait DevelopmentCardInventories[Card, T[_]] {
   }
 }
 
+case class PublicDevCardInv(m: Map[Int, Int])
+
 object DevelopmentCardInventories {
 
-  type PublicDevelopmentCards[_] = Map[Int, Int]
+  type PublicDevelopmentCards[_]     = PublicDevCardInv
   type PrivateDevelopmentCards[Card] = Map[Int, Seq[(Card, Int)]]
 
   implicit class DevelopmentCardInventoriesOps[Card, T[_]](inv: T[Card])(implicit ev: DevelopmentCardInventories[Card, T]) {
@@ -43,37 +43,42 @@ object DevelopmentCardInventories {
   }
 
   implicit def publicBuyDevCard[Card]: BuyDevelopmentCard[ImperfectInfoBuyCard[Card], PublicDevelopmentCards[Card]] = {
-    (t: PublicDevelopmentCards[Card], player: Int, _: Int, _: ImperfectInfoBuyCard[Card]) => {
-      t + (player -> (t.getOrElse(player, 0) + 1))
-    }
+    (t: PublicDevelopmentCards[Card], player: Int, _: Int, _: ImperfectInfoBuyCard[Card]) =>
+      {
+        PublicDevCardInv(t.m + (player -> (t.m.getOrElse(player, 0) + 1)))
+      }
   }
 
   implicit def publicDevelopmentCardInventories[Card]: DevelopmentCardInventories[Card, PublicDevelopmentCards] = {
     new DevelopmentCardInventories[Card, PublicDevelopmentCards] {
-      override def numCards(t: PublicDevelopmentCards[Card], player: Int): Int = t.getOrElse(player, 0)
+      override def numCards(t: PublicDevelopmentCards[Card], player: Int): Int = t.m.getOrElse(player, 0)
 
       override def playCard(t: PublicDevelopmentCards[Card], player: Int, card: Card): PublicDevelopmentCards[Card] =
-        t + (player -> (numCards(t, player) - 1))
+        PublicDevCardInv(t.m + (player -> (numCards(t, player) - 1)))
     }
   }
 
   implicit def privateBuyDevCard[Card]: BuyDevelopmentCard[PerfectInfoBuyCard[Card], PrivateDevelopmentCards[Card]] = {
-    (t: PrivateDevelopmentCards[Card], player: Int, turn: Int, buy: PerfectInfoBuyCard[Card]) => {
-      t + (player -> t.get(player).fold[Seq[(Card, Int)]](Nil)(_ :+ (buy.card, turn)))
-    }
+    (t: PrivateDevelopmentCards[Card], player: Int, turn: Int, buy: PerfectInfoBuyCard[Card]) =>
+      {
+        t + (player -> t.get(player).fold[Seq[(Card, Int)]](Nil)(_ :+ (buy.card, turn)))
+      }
   }
 
-  implicit def perfectInfoDevelopmentCardInventories[Card] =
+  implicit def perfectInfoDevelopmentCardInventories[Card]: DevelopmentCardInventories[Card, PrivateDevelopmentCards] =
     new DevelopmentCardInventories[Card, PrivateDevelopmentCards] {
       override def numCards(t: PrivateDevelopmentCards[Card], player: Int): Int =
         t.get(player).fold(0)(_.size)
 
       override def playCard(m: PrivateDevelopmentCards[Card], player: Int, card: Card): PrivateDevelopmentCards[Card] = {
-        m + (player -> m.get(player).map {
-          _.sortWith { case ((c1, t1), (c2, t2)) =>
-            if (c1 == c2) t1 < t2 else c1 == card
-          }.drop(1)
-        }.getOrElse(Nil))
+        m + (player -> m
+          .get(player)
+          .map {
+            _.sortWith { case ((c1, t1), (c2, t2)) =>
+              if (c1 == c2) t1 < t2 else c1 == card
+            }.drop(1)
+          }
+          .getOrElse(Nil))
       }
     }
 }

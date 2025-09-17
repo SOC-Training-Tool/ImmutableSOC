@@ -9,14 +9,12 @@ import soc.core.state.Bank
 import soc.core.state.ops.BankInvOps
 import util.DependsOn
 
-object PortTradeAction {
+class PortTradeAction [II, INV[_]](implicit inv: ResourceInventories[II, PerfectInfo[II], INV]) extends GameAction[PortTradeMove[II], Bank[II] :: INV[II] :: HNil] {
 
-  def apply[II, INV[_]](implicit inv: ResourceInventories[II, PerfectInfo[II], INV]): GameAction[PortTradeMove[II], Bank[II] :: INV[II] :: HNil] = {
-    GameAction[PortTradeMove[II], Bank[II] :: INV[II] :: HNil] { case (move, state) =>
-      implicit val dep = DependsOn.single[Bank[II] :: INV[II] :: HNil]
-      state
-        .payToBank(move.player, move.give)
-        .getFromBank(move.player, move.get)
-    }
+  override def apply(move: PortTradeMove[II], state: Bank[II] :: INV[II] :: HNil): Bank[II] :: INV[II] :: HNil = {
+    implicit val dep = DependsOn.single[Bank[II] :: INV[II] :: HNil]
+    state
+      .payToBank(move.player, move.give)
+      .getFromBank(move.player, move.get)
   }
 }

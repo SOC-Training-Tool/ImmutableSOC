@@ -10,19 +10,15 @@ import soc.core.{BuildRoadMove, ResourceInventories, Road}
 import util.DependsOn
 import util.opext.Embedder
 
-object BuildRoadAction {
+class BuildRoadAction[Res, Inv[_], EB <: Coproduct](cost: InventorySet[Res, Int])(implicit
+    inv: ResourceInventories[Res, PerfectInfo[Res], Inv],
+    roadEmbedder: Embedder[EB, Road.type :+: CNil]
+) extends GameAction[BuildRoadMove, EdgeBuildingState[EB] :: Bank[Res] :: Inv[Res] :: HNil] {
 
-  def apply[Res, Inv[_], EB <: Coproduct]
-  (cost: InventorySet[Res, Int])
-  (implicit inv: ResourceInventories[Res, PerfectInfo[Res], Inv],
-   roadEmbedder: Embedder[EB, Road.type :+: CNil],
-  ): GameAction[BuildRoadMove, EdgeBuildingState[EB] :: Bank[Res] :: Inv[Res] :: HNil] = {
-    GameAction[BuildRoadMove, EdgeBuildingState[EB] :: Bank[Res] :: Inv[Res] :: HNil] { case (move, state) =>
-      implicit val roadDep =
-        DependsOn[EdgeBuildingState[EB] :: Bank[Res] :: Inv[Res] :: HNil, EdgeBuildingState[EB] :: HNil]
-      implicit val invDep =
-        DependsOn[EdgeBuildingState[EB] :: Bank[Res] :: Inv[Res] :: HNil, Bank[Res] :: Inv[Res] :: HNil]
-      state.addRoad(move.edge, move.player).payToBank(move.player, cost)
-    }
+  override def apply(move: BuildRoadMove, state: EdgeBuildingState[EB] :: Bank[Res] :: Inv[Res] :: HNil): EdgeBuildingState[EB] :: Bank[Res] :: Inv[Res] :: HNil = {
+    val dep              = DependsOn.single[EdgeBuildingState[EB] :: Bank[Res] :: Inv[Res] :: HNil]
+    implicit val roadDep = dep.innerDependency[EdgeBuildingState[EB] :: HNil]
+    implicit val invDep  = dep.innerDependency[Bank[Res] :: Inv[Res] :: HNil]
+    state.addRoad(move.edge, move.player).payToBank(move.player, cost)
   }
 }

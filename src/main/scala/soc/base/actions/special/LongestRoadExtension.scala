@@ -1,39 +1,29 @@
 package soc.base.actions.special
 
-import game.ActionExtension
-import shapeless.{::, Coproduct, HNil}
+import game.{GameAction, GameMoveResult}
+import shapeless.{::, Coproduct, HList, HNil}
 import soc.base.state.ops._
 import soc.base.state.{LongestRoadOps, SOCLongestRoadPlayer, SOCRoadLengths}
-import soc.core.SOCBoard
+import soc.core.{Edge, SOCBoard}
 import soc.core.state.ops.PointsOps
 import soc.core.state.{EdgeBuildingState, PlayerPoints, VertexBuildingState}
-import util.DependsOn
 
-object LongestRoadExtension {
+class LongestRoadExtension[Res, VB <: Coproduct, EB <: Coproduct, BOARD](min: Int = 5)(implicit socBoard: SOCBoard[Res, BOARD])
+    extends GameAction[Seq[Edge], SOCRoadLengths :: SOCLongestRoadPlayer :: BOARD :: VertexBuildingState[VB] :: EdgeBuildingState[EB] :: PlayerPoints :: HNil] {
 
-  def apply[M, Res, VB <: Coproduct, EB <: Coproduct, BOARD]
-  (implicit socBoard: SOCBoard[Res, BOARD]): ActionExtension[M, SOCRoadLengths :: SOCLongestRoadPlayer :: BOARD :: VertexBuildingState[VB] :: EdgeBuildingState[EB] :: PlayerPoints :: HNil] = {
-    new ActionExtension[M, SOCRoadLengths :: SOCLongestRoadPlayer :: BOARD :: VertexBuildingState[VB] :: EdgeBuildingState[EB] :: PlayerPoints :: HNil] {
-      override def apply(move: M, pre: STATE, post: STATE): STATE = {
-        implicit val dep = DependsOn.single[STATE]
-        implicit val pointDep = dep.innerDependency[PlayerPoints :: HNil]
+  override def apply(v1: Seq[Edge], state: STATE): STATE = {
+    val board             = state.select[BOARD]
+    val edgeBuildingMap   = state.select[EdgeBuildingState[EB]]
+    val vertexBuildingMap = state.select[VertexBuildingState[VB]]
+    val roadLengthOps     = new LongestRoadOps(board, edgeBuildingMap, vertexBuildingMap)
+    val longestRoadPlayer = state.longestRoadPlayer
 
-        val board = post.select[BOARD]
-        val edgeBuildingMap = post.select[EdgeBuildingState[EB]]
-        val vertexBuildingMap = post.select[VertexBuildingState[VB]]
-        val roadLengthOps = new LongestRoadOps(board, edgeBuildingMap, vertexBuildingMap)
+    val updatedRoadLengths       = roadLengthOps.calcLongestRoadLengths()
+    val updatedLongestRoadPlayer = updatedSpecialPlayer(min, longestRoadPlayer, updatedRoadLengths.m)
 
-        val longestRoadPlayer = pre.longestRoadPlayer
-        val updatedRoadLengths = roadLengthOps.calcLongestRoadLengths()
-        val updatedLongestRoadPlayer = updatedSpecialPlayer(5, longestRoadPlayer, updatedRoadLengths.m)
-        updateState[STATE](longestRoadPlayer, updatedLongestRoadPlayer, post)(
-          _.incrementPointForPlayer(_),
-          _.decrementPointForPlayer(_),
-          _.updateLongestRoadPlayer(_))
-      }
-    }
+    val result = state.updateRoadLengths(updatedRoadLengths.m)
+    updateState[STATE](longestRoadPlayer, updatedLongestRoadPlayer, result)(_.incrementPointForPlayer(_), _.decrementPointForPlayer(_), _.updateLongestRoadPlayer(_))
+
   }
-
 }
-
 

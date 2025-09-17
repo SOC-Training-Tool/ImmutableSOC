@@ -1,31 +1,21 @@
 package soc.base.actions.developmentcards
 
-import game.{ActionExtension, GameAction}
+import game.GameAction
 import shapeless.ops.coproduct
 import shapeless.{::, Coproduct, HNil}
-import soc.base.{PerfectInfoBuyDevelopmentCardMoveResult, PlayPointMove, state}
-import soc.core.DevelopmentCardInventories
+import soc.base.{PerfectInfoBuyDevelopmentCardMoveResult, PlayPointMove, Point}
+import soc.core.state.PlayerPoints
 import soc.core.state.ops.PointsOps
-import soc.core.state.{PlayerPoints, Turn}
-
-case object Point
 
 object PlayPointAction {
 
-  def apply[Dev <: Coproduct, DevInv[_]]
-  (implicit dev: DevelopmentCardInventories[Dev, DevInv],
-   inject: coproduct.Inject[Dev, Point.type],
-  ): GameAction[PlayPointMove, DevInv[Dev] :: Turn :: PlayerPoints :: HNil] = {
-    GameAction[PlayPointMove, PlayerPoints :: HNil] { case (move, state) =>
-      state.incrementPointForPlayer(move.player)
-    }.extend(PlayDevelopmentCardActionExtension[PlayPointMove, Dev, Point.type, DevInv](Point))
+  def apply(): GameAction[PlayPointMove, PlayerPoints :: HNil] = {
+    GameAction.apply[PlayPointMove, PlayerPoints :: HNil]((move, state) => state.incrementPointForPlayer(move.player))
   }
 
-  def extension[Dev <: Coproduct](implicit selector: coproduct.Selector[Dev, Point.type]) = {
-    new ActionExtension[PerfectInfoBuyDevelopmentCardMoveResult[Dev], PlayerPoints :: HNil] {
-      override def apply(move: PerfectInfoBuyDevelopmentCardMoveResult[Dev], pre: STATE, post: STATE): STATE = {
-        move.card.select[Point.type].fold(post)(_ => post.incrementPointForPlayer(move.player))
-      }
-    }
+  def extension[Dev <: Coproduct](implicit selector: coproduct.Selector[Dev, Point.type]): GameAction[PerfectInfoBuyDevelopmentCardMoveResult[Dev], PlayerPoints :: HNil] = {
+    GameAction.apply[PerfectInfoBuyDevelopmentCardMoveResult[Dev], PlayerPoints :: HNil]((move, state) =>
+      move.card.select[Point.type].fold(state)(_ => state.incrementPointForPlayer(move.player))
+    )
   }
 }
