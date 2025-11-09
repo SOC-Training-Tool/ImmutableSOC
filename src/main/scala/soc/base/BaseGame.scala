@@ -66,8 +66,6 @@ object BaseGame {
     type STATE = RobberLocation :: PrivateInventories[Resource] :: PrivateDevelopmentCards[DevelopmentCard] :: DevelopmentCardDeck[DevelopmentCard] :: Bank[Resource] :: Turn :: PlayerPoints :: LargestArmyPlayer :: PlayerArmyCount :: VertexBuildingState[BaseVertexBuilding] :: SOCRoadLengths :: SOCLongestRoadPlayer :: BaseBoard[Resource] :: EdgeBuildingState[BaseEdgeBuilding] :: MoveCount :: PublicInventories[Resource] :: HNil
 
     val game: ImmutableGame[MOVES, STATE] = ImmutableGame.apply[MOVES]().addGlobalAction(MoveCountExtension).align[MOVES, STATE]()
-
-
   }
 
   object PublicInfoGame {
@@ -86,4 +84,7 @@ object BaseGame {
 
     val game: ImmutableGame[MOVES, STATE] = ImmutableGame.apply[MOVES]().addGlobalAction(MoveCountExtension).align[MOVES, STATE]()
   }
+
+  type PerfectInfoMoves = PerfectInfoGame.MOVES
+  type PublicInfoMoves = PublicInfoGame.MOVES
 }

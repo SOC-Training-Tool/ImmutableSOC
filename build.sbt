@@ -3,7 +3,7 @@ name := "ImmutableSOC"
 organization := "io.github.soc-training-tool"
 scalaVersion := "2.13.14"
 description := "Library for Immutable Settlers of Catan."
-version := "0.0.6-SNAPSHOT"
+version := "0.0.7-SNAPSHOT"
 
 libraryDependencies += "org.scalactic" %% "scalactic" % "3.0.8"
 libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.8" % "test"

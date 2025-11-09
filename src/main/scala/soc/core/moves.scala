@@ -27,7 +27,7 @@ case class BuildRoadMove(player: Int, edge: Edge) extends PerfectInformationGame
 
 case class BuildSettlementMove(player: Int, vertex: Vertex) extends PerfectInformationGameMove[BuildSettlementMove]
 
-case class InitialPlacementMove(vertex: Vertex, edge: Edge, first: Boolean, player: Int) extends PerfectInformationGameMove[InitialPlacementMove]
+case class InitialPlacementMove(vertex: Vertex, edge: Edge, player: Int) extends PerfectInformationGameMove[InitialPlacementMove]
 
 object moves {
 
