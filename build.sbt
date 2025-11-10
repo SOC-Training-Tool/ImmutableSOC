@@ -1,12 +1,18 @@
 
 name := "ImmutableSOC"
 organization := "io.github.soc-training-tool"
-scalaVersion := "2.13.0"
+scalaVersion := "2.13.14"
 description := "Library for Immutable Settlers of Catan."
+version := "0.0.7-SNAPSHOT"
 
 libraryDependencies += "org.scalactic" %% "scalactic" % "3.0.8"
 libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.8" % "test"
+libraryDependencies += "com.chuusai" %% "shapeless" % "2.3.12"
 
+Test / publishArtifact := true
+
+scalacOptions += "-Xlog-implicits"
+//scalacOptions += "-Ystatistics"
 
 inThisBuild(List(
   // These are normal sbt settings to configure for release, skip if already defined
@@ -17,10 +23,10 @@ inThisBuild(List(
   credentials += Credentials("Sonatype Nexus Repository Manager", "oss.sonatype.org", sys.env.getOrElse("SONATYPE_USERNAME", ""), sys.env.getOrElse("SONATYPE_PASSWORD", "")),
 
   // These are the sbt-release-early settings to configure
-  pgpPublicRing := file("./travis/local.pubring.asc"),
-  pgpSecretRing := file("./travis/local.secring.asc"),
-  pgpPassphrase := sys.env.get("PGP_PASSPHRASE").map(_.toArray),
-  releaseEarlyWith := SonatypePublisher
+//  pgpPublicRing := file("./travis/local.pubring.asc"),
+//  pgpSecretRing := file("./travis/local.secring.asc"),
+//  pgpPassphrase := sys.env.get("PGP_PASSPHRASE").map(_.toArray),
+//  releaseEarlyWith := SonatypePublisher
 ))
 
 
