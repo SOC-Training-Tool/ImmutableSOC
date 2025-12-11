@@ -1,0 +1,3 @@
+# Ensure shell scripts are executable
+*.sh text eol=lf
+.github/scripts/* text eol=lf

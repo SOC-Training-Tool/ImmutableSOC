@@ -10,54 +10,55 @@ import soc.core.state._
 import scala.language.postfixOps
 
 class BaseGameSpec extends FunSpec with Matchers {
+  import BaseGameFixtures._
 
-  println(imperfectInfoGame.publicResult.select[PlayerPoints])
+  describe("PerfectInfoGame") {
+    it("should initialize correctly") {
+      perfectInfoGame.initPerfectInfoState should not be null
+    }
 
-  val initState = imperfectInfoGame.initPublicInfoState
+    it("should apply all test moves without error") {
+      perfectInfoGame.perfectResult should not be null
+    }
 
-//  val statsOverGame: Seq[(Int, RollDiceStats[Resource], PlayerMap[Int])] = imperfectInfoGame.testMoveResults
-//    .foldLeft((initState, List.empty[(Int, RollDiceStats[Resource], PlayerMap[Int])])) { case ((state, stats), m) =>
-//      val newState  = BaseGame.PublicInfoGame.game.applyMove(m, state)
-//      val turn      = newState.select[Turn].t
-//      val gameStats = newState.select[RollDiceStats[Resource]]
-//      val points    = newState.select[PlayerPoints].points
-//      (newState, stats :+ (turn, gameStats, points))
-//    }
-//    ._2
-//    .distinctBy(_._1)
+    it("should track player points correctly") {
+      val points = perfectInfoGame.perfectResult.select[PlayerPoints]
+      points.points should not be empty
+    }
 
-//  def getCollectionStatsForPlayer(player: Int): (List[Int], List[Double], List[Int]) = {
-//    val zipped = statsOverGame
-//      .map { case (turn, stats, points) =>
-//        val gained = stats.gained.getOrElse(player, InventorySet.empty[Resource, Int])
-//        val ev     = stats.expectedGains.getOrElse(player, InventorySet.empty[Resource, Double])
-//        val point = points.getOrElse(player, 0)
-//        turn -> (gained.getTotal, ev.getTotal, point)
-//      }
-//      .toList
-//      .sortBy(_._1)
-//      .map(_._2)
-//    (zipped.map(_._1), zipped.map(_._2), zipped.map(_._3))
-//
-//  }
+    it("should advance turn counter") {
+      val turn = perfectInfoGame.perfectResult.select[Turn]
+      turn.t should be > 0
+    }
 
-//  def printGameCollection(player: Int) = {
-//    val (g, e, _) = getCollectionStatsForPlayer(player)
-//    //println(player)
-//    println(g.mkString(player.toString + ",", ",", ""))
-//    println(e.mkString(player.toString + ",", ",", ""))
-//    //println(p.mkString(player.toString + ",", ",", ""))
-//  }
-//
-//  println((0 until (statsOverGame.length - 1)).mkString(","))
-//  printGameCollection(0)
-//  printGameCollection(1)
-//  printGameCollection(2)
-//  printGameCollection(3)
+    it("should have valid bank state") {
+      val bank = perfectInfoGame.perfectResult.select[Bank[Resource]]
+      bank.b should not be null
+    }
+  }
 
-//
-//  val diceRollStats = perfectResult.select[RollDiceStats[Resource]]
-//  val gains = diceRollStats.gained.view.mapValues(_.getTotal).toMap
-//  val ev = diceRollStats.expectedGains.view.mapValues(_.getTotal).toMap
-//  println((gains, ev))
+  describe("PublicInfoGame") {
+    it("should initialize correctly") {
+      imperfectInfoGame.initPublicInfoState should not be null
+    }
+
+    it("should apply all test moves without error") {
+      imperfectInfoGame.publicResult should not be null
+    }
+
+    it("should track player points correctly") {
+      val points = imperfectInfoGame.publicResult.select[PlayerPoints]
+      points.points should not be empty
+    }
+
+    it("should advance turn counter") {
+      val turn = imperfectInfoGame.publicResult.select[Turn]
+      turn.t should be > 0
+    }
+
+    it("should have valid bank state") {
+      val bank = imperfectInfoGame.publicResult.select[Bank[Resource]]
+      bank.b should not be null
+    }
+  }
 }
