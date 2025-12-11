@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [ master, game_actions ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  test:
+    name: Test and Coverage
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Setup JDK
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '11'
+        cache: 'sbt'
+
+    - name: Run tests with coverage
+      run: sbt clean coverage test coverageReport
+
+    - name: Generate coverage summary
+      run: |
+        echo "## Test Coverage Summary" >> $GITHUB_STEP_SUMMARY
+        if [ -f target/scala-2.13/scoverage-report/index.html ]; then
+          echo "Coverage report generated successfully" >> $GITHUB_STEP_SUMMARY
+          echo "Check the Codecov report for detailed coverage information" >> $GITHUB_STEP_SUMMARY
+        fi
+
+    - name: Upload coverage artifacts
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: coverage-report
+        path: target/scala-2.13/scoverage-report/
