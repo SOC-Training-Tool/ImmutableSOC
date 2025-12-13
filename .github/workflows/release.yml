@@ -67,7 +67,7 @@ jobs:
         git push origin master
         git push origin "v$NEW_VERSION"
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
 
     - name: Summary
       if: steps.check.outputs.should_release == 'true'
