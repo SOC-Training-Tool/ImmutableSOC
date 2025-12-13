@@ -26,7 +26,7 @@ inThisBuild(List(
   developers := List(Developer("grogdotcom", "Gregory Herman", "g.herman27@gmail.com", url("https://github.com/grogdotcom"))),
 
   // Sonatype credentials
-  credentials += Credentials("Sonatype Nexus Repository Manager", "oss.sonatype.org", sys.env.getOrElse("SONATYPE_USERNAME", ""), sys.env.getOrElse("SONATYPE_PASSWORD", "")),
+  credentials += Credentials("Sonatype Nexus Repository Manager", "s01.oss.sonatype.org", sys.env.getOrElse("SONATYPE_USERNAME", ""), sys.env.getOrElse("SONATYPE_PASSWORD", "")),
 
   // PGP signing settings
   usePgpKeyHex(sys.env.getOrElse("PGP_KEY_ID", "0")),
