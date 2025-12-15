@@ -15,7 +15,7 @@ scalacOptions += "-Xlog-implicits"
 //scalacOptions += "-Ystatistics"
 
 // Publishing settings
-publishTo := sonatypePublishToBundle.value
+publishTo := Some("GitHub Package Registry" at "https://maven.pkg.github.com/SOC-Training-Tool/ImmutableSOC")
 publishMavenStyle := true
 
 inThisBuild(List(
@@ -25,10 +25,11 @@ inThisBuild(List(
   scmInfo := Some(ScmInfo(url("https://github.com/SOC-Training-Tool/ImmutableSOC"), "git@github.com:SOC-Training-Tool/ImmutableSOC.git")),
   developers := List(Developer("grogdotcom", "Gregory Herman", "g.herman27@gmail.com", url("https://github.com/grogdotcom"))),
 
-  // Sonatype credentials
-  credentials += Credentials("Sonatype Nexus Repository Manager", "s01.oss.sonatype.org", sys.env.getOrElse("SONATYPE_USERNAME", ""), sys.env.getOrElse("SONATYPE_PASSWORD", "")),
-
-  // PGP signing settings
-  usePgpKeyHex(sys.env.getOrElse("PGP_KEY_ID", "0")),
-  pgpPassphrase := sys.env.get("PGP_PASSPHRASE").map(_.toArray)
+  // GitHub Packages credentials
+  credentials += Credentials(
+    "GitHub Package Registry",
+    "maven.pkg.github.com",
+    "SOC-Training-Tool",
+    sys.env.getOrElse("GITHUB_TOKEN", "")
+  )
 ))
