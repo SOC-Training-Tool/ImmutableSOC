@@ -1,9 +1,12 @@
 package soc.base
 
-import shapeless.Coproduct
+import game.GameState
 import soc.core.{BoardHex, Hex, Port, Resource, SOCBoard, Vertex}
 
-case class BaseBoard[Res](hexes: List[Hex[Res]], ports: List[Port])
+case class BaseBoard[Res](hexes: List[Hex[Res]], ports: List[Port]) extends GameState[BaseBoard[Res]] {
+  override type Delta = Nothing
+  override def apply(delta: Nothing): BaseBoard[Res] = this
+}
 
 object BaseBoard {
 

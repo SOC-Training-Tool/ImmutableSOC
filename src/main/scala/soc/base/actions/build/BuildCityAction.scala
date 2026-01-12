@@ -1,25 +1,25 @@
 package soc.base.actions.build
 
-import game.{GameAction, InventorySet}
-import shapeless.{:+:, ::, CNil, Coproduct, HNil}
-import soc.base.state.ops._
+import game.Delta.DeltaGen
+import game.{DeltaList, GameAction, GameState, InventorySet}
+import shapeless.Coproduct
+import shapeless.ops.coproduct
 import soc.core.Transactions.PerfectInfo
-import soc.core.state.ops.BankInvOps
-import soc.core.state.{Bank, PlayerPoints, VertexBuildingState}
-import soc.core.{BuildCityMove, City, ResourceInventories, Settlement}
-import util.DependsOn
-import util.opext.Embedder
+import soc.core.state.{Bank, BoardBuildingState, PlayerPoints, VertexBuildingState}
+import soc.core.{BuildCityMove, City, Transactions}
 
-class BuildCityAction[Res, Inv[_], VB <: Coproduct](cost: InventorySet[Res, Int])(implicit
-    inv: ResourceInventories[Res, PerfectInfo[Res], Inv],
-    cityEmbedder: Embedder[VB, City.type :+: Settlement.type :+: CNil]
-) extends GameAction[BuildCityMove, VertexBuildingState[VB] :: PlayerPoints :: Bank[Res] :: Inv[Res] :: HNil] {
+object BuildCityAction {
 
-  override def apply(move: BuildCityMove, state: VertexBuildingState[VB] :: PlayerPoints :: Bank[Res] :: Inv[Res] :: HNil): VertexBuildingState[VB] :: PlayerPoints :: Bank[Res] :: Inv[Res] :: HNil = {
-    val dep              = DependsOn.single[VertexBuildingState[VB] :: PlayerPoints :: Bank[Res] :: Inv[Res] :: HNil]
-    implicit val cityDep = dep.innerDependency[VertexBuildingState[VB] :: PlayerPoints :: HNil]
-    implicit val invDep  = dep.innerDependency[Bank[Res] :: Inv[Res] :: HNil]
-    state.buildCity(move.vertex, move.player).payToBank(move.player, cost)
-  }
+  def apply[II, Inv[_] <: GameState[Inv[II]], VB <: Coproduct](cost: InventorySet[II, Int])(implicit gen: DeltaGen[Inv[II], PerfectInfo[II]], inject: coproduct.Inject[VB, City.type]) =
+    GameAction.apply[BuildCityMove] { move =>
+      DeltaList()
+        .add[VertexBuildingState[VB]](BoardBuildingState.RemoveBuilding(move.vertex))
+        .add[Inv[II]](Transactions.Lose(move.player, cost))
+        .add[Bank[II]](Bank.Add(cost))
+        .add[PlayerPoints](PlayerPoints.Decrement(move.player))
+        .add[VertexBuildingState[VB]](BoardBuildingState.add(move.vertex, City, move.player))
+        .add[PlayerPoints](PlayerPoints.Increment(move.player), PlayerPoints.Increment(move.player))
+        .toList
+    }
 }
 

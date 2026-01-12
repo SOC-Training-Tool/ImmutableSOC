@@ -1,14 +1,15 @@
 package soc.core.actions
 
-import game.GameAction
-import shapeless.{::, HNil}
+import game.{Delta, DeltaList, GameAction}
+import shapeless.{:+:, CNil, HNil}
 import soc.core.EndTurnMove
 import soc.core.state.Turn
-import soc.core.state.ops.TurnOps
 
-case object EndTurnAction extends GameAction[EndTurnMove, Turn :: HNil] {
+object EndTurnAction {
 
-  override def apply(v1: EndTurnMove, state: Turn :: HNil): Turn :: HNil =
-    state.incrementTurn
+  val action: GameAction[EndTurnMove, HNil, Delta[Turn] :+: CNil] = GameAction.apply[EndTurnMove] { _ =>
+    DeltaList().add[Turn](1).toList
+  }
 
 }
+

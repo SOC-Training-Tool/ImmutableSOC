@@ -1,37 +1,42 @@
 package soc.base.actions
 
-import game.{GameAction, InventorySet}
+import game.Delta.DeltaGen
+import game.{Delta, DeltaList, GameAction, GameState, InventorySet}
+import shapeless.ops.coproduct
 import shapeless.{:+:, ::, CNil, Coproduct, HNil}
-import soc.base.state.ops.{BuildRoadStateOps, BuildSettlementStateOps}
 import soc.core.SOCBoard.SOCBoardOps
 import soc.core.Transactions.PerfectInfo
-import soc.core.state.ops.{BankInvOps, PointsOps, TurnOps}
-import soc.core.state.{Bank, EdgeBuildingState, MoveCount, PlayerPoints, Turn, VertexBuildingState}
-import soc.core.{InitialPlacementMove, ResourceInventories, Road, SOCBoard, Settlement}
-import util.DependsOn
-import util.opext.Embedder
+import soc.core.state._
+import soc.core._
 
-class InitialPlacementAction[Res, INV[_], VB <: Coproduct, EB <: Coproduct, BOARD](implicit
-    inv: ResourceInventories[Res, PerfectInfo[Res], INV],
-    settle: Embedder[VB, Settlement.type :+: CNil],
-    road: Embedder[EB, Road.type :+: CNil],
-    socBoard: SOCBoard[Res, BOARD]
-) extends GameAction[InitialPlacementMove, VertexBuildingState[VB] :: EdgeBuildingState[EB] :: BOARD :: PlayerPoints :: Bank[Res] :: INV[Res] :: MoveCount :: HNil] {
-  override def apply(move: InitialPlacementMove, state: STATE): STATE = {
-    val dep                = DependsOn.single[STATE]
-    implicit val settleDep = dep.innerDependency[VertexBuildingState[VB] :: PlayerPoints :: HNil]
-    implicit val roadDep   = dep.innerDependency[EdgeBuildingState[EB] :: HNil]
-    implicit val invDep    = dep.innerDependency[Bank[Res] :: INV[Res] :: HNil]
-    val moveCount          = state.select[MoveCount].count
-    val result             = state
-      .placeSettlement(move.vertex, move.player)
-      .addRoad(move.edge, move.player)
-    if (moveCount >= state.playerPoints.keys.size) {
-      val board     = result.select[BOARD]
-      val resources = board.hexesForVertex
-        .get(move.vertex)
-        .fold[Seq[Res]](Nil)(_.flatMap(_.hex.getResource))
-      result.getFromBank(move.player, InventorySet.fromList(resources))
-    } else result
-  }
+object InitialPlacementAction {
+
+  def apply[II, Inv[_] <: GameState[Inv[II]], BOARD, EB <: Coproduct, VB <: Coproduct]()(
+    implicit
+    gen: DeltaGen[Inv[II], PerfectInfo[II]],
+    vbInject: coproduct.Inject[VB, Settlement.type],
+    ebInject: coproduct.Inject[EB, Road.type],
+    socBoard: SOCBoard[II, BOARD]
+  ): GameAction[InitialPlacementMove, BOARD :: MoveCount :: PlayerPoints :: HNil, Delta[Bank[II]] :+: Delta[Inv[II]] :+: Delta[EdgeBuildingState[EB]] :+: Delta[PlayerPoints] :+: Delta[VertexBuildingState[VB]] :+: CNil] =
+    GameAction.fromState[InitialPlacementMove, BOARD :: MoveCount :: PlayerPoints :: HNil] { case (move, state) =>
+      val board      = state.select[BOARD]
+      val moveCount  = state.select[MoveCount].count
+      val numPlayers = state.select[PlayerPoints].points.keys.size
+
+      val (gain, take) = Option.apply().filter(_ => moveCount >= numPlayers).map { _ =>
+        val resources = board.hexesForVertex
+          .get(move.vertex)
+          .fold[Seq[II]](Nil)(_.flatMap(_.hex.getResource))
+        val inv       = InventorySet.fromList(resources)
+        (Transactions.Gain(move.player, inv), Bank.Take(inv))
+      }.unzip
+
+      DeltaList()
+        .add[VertexBuildingState[VB]](BoardBuildingState.add(move.vertex, Settlement, move.player))
+        .add[PlayerPoints](PlayerPoints.Increment(move.player))
+        .add[EdgeBuildingState[EB]](BoardBuildingState.add(move.edge, Road, move.player))
+        .add[Inv[II]](gain.toList: _*)
+        .add[Bank[II]](take.toList: _*)
+        .toList
+    }
 }

@@ -1,17 +1,20 @@
 package soc.core.actions
 
-import game.GameAction
-import shapeless.{::, HNil}
+import game.Delta.DeltaGen
+import game.{Delta, DeltaList, GameAction, GameState}
+import shapeless.{:+:, CNil, HNil}
 import soc.core.Transactions.PerfectInfo
 import soc.core.state.Bank
-import soc.core.state.ops._
-import soc.core.{DiscardMove, ResourceInventories}
-import util.DependsOn
+import soc.core.{DiscardMove, Transactions}
 
-class DiscardAction[II, INV[_]](implicit inv: ResourceInventories[II, PerfectInfo[II], INV]) extends GameAction[DiscardMove[II], Bank[II] :: INV[II] :: HNil] {
+object DiscardAction {
 
-  override def apply(move: DiscardMove[II], state: Bank[II] :: INV[II] :: HNil): Bank[II] :: INV[II] :: HNil = {
-    implicit val dep = DependsOn.single[Bank[II] :: INV[II] :: HNil]
-    state.payToBank(move.player, move.set)
-  }
+  def apply[II, INV[_] <: GameState[INV[II]]]()(implicit deltaGen: DeltaGen[INV[II], PerfectInfo[II]]): GameAction[DiscardMove[II], HNil, Delta[INV[II]] :+: Delta[Bank[II]] :+: CNil] =
+    GameAction.apply[DiscardMove[II]] { move =>
+      DeltaList()
+        .add[Bank[II]](Bank.Add(move.set))
+        .add[INV[II]](Transactions.Lose(move.player, move.set))
+        .toList
+    }
+
 }

@@ -1,36 +1,33 @@
 package soc.base.actions
 
+import game.Delta.DeltaGen
 import game._
-import shapeless.{::, Coproduct, HNil}
+import shapeless.{:+:, CNil, HNil}
 import soc.base.state.RobberLocation
-import soc.base.state.ops.RobberStateOps
 import soc.base.{PerfectInfoRobberMoveResult, RobberMoveResult}
-import soc.core.ResourceInventories
-import ResourceInventories.ResourceInventoriesOp
-import soc.core.Transactions._
-import util.DependsOn
+import soc.core.Transactions
 
-class MoveRobberAndStealAction[II, INV[_]](implicit inv: ResourceInventories[II, ImperfectInfo[II], INV]) extends GameAction[RobberMoveResult[II], RobberLocation :: INV[II] :: HNil] {
-  override def apply(move: RobberMoveResult[II], state: RobberLocation :: INV[II] :: HNil): RobberLocation :: INV[II] :: HNil = {
-    val dep                = DependsOn.single[RobberLocation :: INV[II] :: HNil]
-    implicit val robberDep = dep.innerDependency[RobberLocation :: HNil]
-    val result             = state.updateRobberHexId(move.robberHexId)
-    move.steal.fold(result) { stl =>
-      dep.updateWith[INV[II]](result)(_.update(Coproduct[ImperfectInfo[II]](ImperfectInfoExchange(stl.victim, move.player, stl.resource))))
+object MoveRobberAndStealAction {
+
+  def public[II, Inv[_] <: GameState[Inv[II]]](implicit delta: DeltaGen[Inv[II], Transactions.ImperfectInfoExchange[II]]): GameAction[RobberMoveResult[II], HNil, Delta[Inv[II]] :+: Delta[RobberLocation] :+: CNil] =
+    GameAction.apply[RobberMoveResult[II]] { move =>
+      val steal = move.steal.map(s => Transactions.ImperfectInfoExchange[II](s.victim, move.player, s.resource))
+      DeltaList()
+        .add[RobberLocation](move.robberHexId)
+        .add[Inv[II]](steal.toList:_*)
+        .toList
     }
-  }
-}
 
-class PerfectInfoMoveRobberAndStealAction[II, INV[_]](implicit inv: ResourceInventories[II, PerfectInfo[II], INV])
-    extends GameAction[PerfectInfoRobberMoveResult[II], RobberLocation :: INV[II] :: HNil] {
-
-  override def apply(move: PerfectInfoRobberMoveResult[II], state: RobberLocation :: INV[II] :: HNil): RobberLocation :: INV[II] :: HNil = {
-    val dep                = DependsOn.single[RobberLocation :: INV[II] :: HNil]
-    implicit val robberDep = dep.innerDependency[RobberLocation :: HNil]
-    val result             = state.updateRobberHexId(move.robberHexId)
-    move.steal.fold(result) { stl =>
-      val set = InventorySet.fromList(Seq(stl.resource))
-      dep.updateWith[INV[II]](result)(_.update(Coproduct[PerfectInfo[II]](Gain(move.player, set)), Coproduct[PerfectInfo[II]](Lose(stl.victim, set))))
+  def perfect[II, Inv[_] <: GameState[Inv[II]]](implicit delta: DeltaGen[Inv[II], Transactions.PerfectInfo[II]]): GameAction[PerfectInfoRobberMoveResult[II], HNil, Delta[Inv[II]] :+: Delta[RobberLocation] :+: CNil] =
+    GameAction.apply[PerfectInfoRobberMoveResult[II]] { move =>
+      val (gain, lose) = move.steal.map { s =>
+        val inv = InventorySet.fromList(Seq(s.resource))
+        (Transactions.Gain(move.player, inv), Transactions.Lose(s.victim, inv))
+      }.unzip
+      DeltaList()
+        .add[RobberLocation](move.robberHexId)
+        .add[Inv[II]](gain.toList:_*)
+        .add[Inv[II]](lose.toList:_*)
+        .toList
     }
-  }
 }

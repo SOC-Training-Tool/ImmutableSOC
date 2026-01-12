@@ -58,12 +58,13 @@ package object core {
     def empty[T: Numeric]: ResourceSet[T] = InventorySet.empty[Resource, T]
   }
 
+  trait BoardBuilding[Loc]
 
-  case object Settlement
+  case object Settlement extends BoardBuilding[Vertex]
 
-  case object City
+  case object City extends BoardBuilding[Vertex]
 
-  case object Road
+  case object Road extends BoardBuilding[Edge]
 
   trait VertexBuildingValue[A] {
     def apply: Int

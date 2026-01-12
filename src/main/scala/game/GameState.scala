@@ -5,15 +5,14 @@ import shapeless.ops.{coproduct, hlist}
 import shapeless.{:+:, ::, CNil, Coproduct, HList, HNil, Poly1}
 import util.opext.Embedder
 
-trait GameState[T] { self: T =>
+trait GameState[T] {
+  self: T =>
   type Delta
 
   def apply(delta: Delta): T
 }
 
-class Delta[T <: GameState[T]] private(val delta: T#Delta) {
-  def apply(t: T)(implicit ev: T#Delta =:= t.Delta): T = t.apply(ev.apply(delta))
-}
+case class Delta[T <: GameState[T]] private(delta: T#Delta)
 
 object Delta {
 
@@ -27,8 +26,15 @@ object Delta {
     def apply(d: D): Delta[T]
   }
 
-  object DeltaGen {
+  trait LowPriorityDeltaGen {
     implicit def base[T <: GameState[T], D](implicit ev: D =:= T#Delta): DeltaGen[T, D] = (d: D) => new Delta[T](ev.apply(d))
+
+  }
+
+
+  object DeltaGen extends LowPriorityDeltaGen {
+
+    def apply[T <: GameState[T], D](implicit d: DeltaGen[T, D]): DeltaGen[T, D] = d
 
     implicit def coproduct[T <: GameState[T], Super <: Coproduct, Sub <: Coproduct](implicit ev: Super =:= T#Delta, embedder: Embedder[Super, Sub]): DeltaGen[T, Sub] =
       (sub: Sub) => new Delta[T](ev.apply(embedder.embed(sub)))
@@ -39,7 +45,7 @@ object Delta {
 
   object ApplyDeltas extends Poly1 {
     implicit def onDelta[T <: GameState[T], S <: HList](implicit modifier: hlist.Modifier.Aux[S, T, T, (T, S)]): Case.Aux[(Delta[T], S), S] =
-      at { case (delta: Delta[T], state: S) => state.updateWith[T, T, S](_.apply(delta.delta))}
+      at { case (delta: Delta[T], state: S) => state.updateWith[T, T, S] ( t => t.apply(delta.delta.asInstanceOf[t.Delta])) }
   }
 
   trait LiftAllDelta[L <: HList] {
@@ -48,14 +54,18 @@ object Delta {
 
   object LiftAllDelta {
 
-    type Aux[L <: HList, Out0 <: Coproduct] = LiftAllDelta[L] { type Out = Out0}
+    type Aux[L <: HList, Out0 <: Coproduct] = LiftAllDelta[L] {type Out = Out0}
 
     def apply[L <: HList](implicit l: LiftAllDelta[L]): Aux[L, l.Out] = l
 
     implicit def recur[H <: GameState[H], T <: HList](implicit next: LiftAllDelta[T]): Aux[H :: T, Delta[H] :+: next.Out] =
-      new LiftAllDelta[H :: T] { type Out = Delta[H] :+: next.Out }
+      new LiftAllDelta[H :: T] {
+        type Out = Delta[H] :+: next.Out
+      }
 
-    implicit val hnil: Aux[HNil, CNil] = new LiftAllDelta[HNil] { type Out = CNil }
+    implicit val hnil: Aux[HNil, CNil] = new LiftAllDelta[HNil] {
+      type Out = CNil
+    }
   }
 
   trait ExtractState[C <: Coproduct] {
@@ -63,21 +73,17 @@ object Delta {
   }
 
   object ExtractState {
-    type Aux[C <: Coproduct, Out0 <: HList] = ExtractState[C] { type Out = Out0}
+    type Aux[C <: Coproduct, Out0 <: HList] = ExtractState[C] {type Out = Out0}
 
     def apply[C <: Coproduct](implicit e: ExtractState[C]): Aux[C, e.Out] = e
 
     implicit def recur[H, S <: GameState[S], T <: Coproduct](implicit ev: H <:< Delta[S], next: ExtractState[T]): Aux[H :+: T, S :: next.Out] =
-      new ExtractState[H :+: T] { type Out = S :: next.Out }
+      new ExtractState[H :+: T] {
+        type Out = S :: next.Out
+      }
 
-    implicit val cnil: Aux[CNil, HNil] = new ExtractState[CNil] { type Out = HNil}
+    implicit val cnil: Aux[CNil, HNil] = new ExtractState[CNil] {
+      type Out = HNil
+    }
   }
-}
-
-
-
-object Test {
-
-
-
 }

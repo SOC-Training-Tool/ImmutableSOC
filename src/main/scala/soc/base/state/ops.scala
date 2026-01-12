@@ -121,61 +121,6 @@ object ops {
     implicit def vertexBuilding[A](implicit vbValue: VertexBuildingValue[A]): Case.Aux[A, Int] = at(_ => vbValue.apply)
   }
 
-  case class ResourceDistributionOnDiceRoll[Res](gained: Map[Int, InventorySet[Res, Int]], blocked: Map[Int, InventorySet[Res, Int]])
-
-  implicit class RollDiceOps[II, VB <: Coproduct, BOARD, INV[_], STATE <: HList](state: STATE)(implicit
-      dep: DependsOn[STATE, RobberLocation :: VertexBuildingState[VB] :: BOARD :: Bank[II] :: INV[II] :: HNil],
-      inv: ResourceInventories[II, PerfectInfo[II], INV],
-      socBoard: SOCBoard[II, BOARD],
-      vertexFolder: ResForVertex[VB]
-  ) {
-
-    implicit val robberLocationDep: DependsOn[STATE, RobberLocation :: HNil] = dep.innerDependency[RobberLocation :: HNil]
-    implicit val bankDep: DependsOn[STATE, Bank[II] :: HNil]                 = dep.innerDependency[Bank[II] :: HNil]
-
-    private val board: BOARD      = dep.get[BOARD](state)
-    private val vertexBuildingMap = dep.get[VertexBuildingState[VB]](state)
-
-    def getResourcesGainedOnRoll(roll: Int): ResourceDistributionOnDiceRoll[II] = {
-
-      def resourcesFromHex(hexes: Seq[BoardHex[II]]) = {
-        val playerGains = for {
-          node     <- hexes
-          resource <- node.hex.getResource.toSeq
-          vertex   <- node.vertices
-          vb       <- vertexBuildingMap.get(vertex).toSeq
-          player    = vb.player
-          amt       = vb.building.fold(ResourcesForBuildingPoly)
-        } yield player -> InventorySet.fromMap(Map(resource -> amt))
-        playerGains.foldLeft(Map.empty[Int, InventorySet[II, Int]]) { case (m, (player, res)) =>
-          m.add(Map(player -> res))
-        }
-      }
-
-      val (gained, blocked) = board.numberHexes
-        .get(roll)
-        .fold[(Seq[BoardHex[II]], Seq[BoardHex[II]])]((Nil, Nil))(_.partition(_.node != state.robberHexId))
-      ResourceDistributionOnDiceRoll(resourcesFromHex(gained), resourcesFromHex(blocked))
-    }
-
-    def distributeResources(resForPlayers: Map[Int, InventorySet[II, Int]]): STATE = {
-      val totalResourcesCollected: InventorySet[II, Int] = resForPlayers.values.foldLeft(InventorySet.empty[II, Int])(_.add(_))
-      val actualResForPlayers = {
-        val resTypes: Seq[II] = totalResourcesCollected.getTypes
-        val overflowTypes     = resTypes.filter(item => !state.bank.contains(totalResourcesCollected.getAmount(item), item))
-        resForPlayers.map[Int, InventorySet[II, Int]] { case (player, resourceSet) =>
-          player -> overflowTypes.foldLeft(resourceSet) { case (set, res) => set.subtract(set.getAmount(res), res) }
-        }
-      }
-      val trueTotalCollected                             = actualResForPlayers.values.foldLeft(InventorySet.empty[II, Int])(_.add(_))
-      dep
-        .updateWith[INV[II]](state)(_.update(actualResForPlayers.map { case (player, res) =>
-          Coproduct[PerfectInfo[II]](Gain(player, res))
-        }.toList))
-        .subtractFromBank(trueTotalCollected)
-    }
-  }
-
   implicit class RoadLengthOps[STATE <: HList](state: STATE)(implicit dep: DependsOn[STATE, SOCLongestRoadPlayer :: SOCRoadLengths :: HNil]) {
     val longestRoadPlayer: Option[Int] = dep.get[SOCLongestRoadPlayer](state).player
     val roadLengths: Map[Int, Int]     = dep.get[SOCRoadLengths](state).m

@@ -1,53 +1,45 @@
 package soc.base.actions.developmentcards
 
+import game.Delta.DeltaGen
 import game._
-import shapeless.{::, HNil}
+import shapeless.{:+:, ::, CNil, HNil}
 import soc.base.state.{DevelopmentCardDeck, DevelopmentCardDeckSize}
 import soc.base.{BuyDevelopmentCardMoveResult, PerfectInfoBuyDevelopmentCardMoveResult}
 import soc.core.DevTransactions.{ImperfectInfoBuyCard, PerfectInfoBuyCard}
-import soc.core.DevelopmentCardInventories.DevelopmentCardInventoriesOps
-import soc.core.state.ops.{BankInvOps, TurnOps}
+import soc.core.Transactions
 import soc.core.state.{Bank, Turn}
-import soc.core.{BuyDevelopmentCard, DevelopmentCardInventories, ResourceInventories, Transactions}
-import util.DependsOn
 
-class BuyDevelopmentCardAction[Res, ResInv[_], Dev, DevInv[_]](cost: InventorySet[Res, Int])(implicit
-    res: ResourceInventories[Res, Transactions.PerfectInfo[Res], ResInv],
-    dev: DevelopmentCardInventories[Dev, DevInv],
-    buyDev: BuyDevelopmentCard[ImperfectInfoBuyCard[Dev], DevInv[Dev]]
-) extends GameAction[BuyDevelopmentCardMoveResult[Dev], DevInv[Dev] :: DevelopmentCardDeckSize :: ResInv[Res] :: Bank[Res] :: Turn :: HNil] {
+object BuyDevelopmentCardAction {
 
-  override def apply(
-      move: BuyDevelopmentCardMoveResult[Dev],
-      state: DevInv[Dev] :: DevelopmentCardDeckSize :: ResInv[Res] :: Bank[Res] :: Turn :: HNil
-  ): DevInv[Dev] :: DevelopmentCardDeckSize :: ResInv[Res] :: Bank[Res] :: Turn :: HNil = {
-    implicit val turnDep = DependsOn[STATE, Turn :: HNil]
-    implicit val invDep  = DependsOn[STATE, Bank[Res] :: ResInv[Res] :: HNil]
-    state
-      .updateWith[DevInv[Dev], DevInv[Dev], STATE](_.buyCard[ImperfectInfoBuyCard[Dev]](move.player, state.turn, ImperfectInfoBuyCard[Dev](move.card)))
-      .updateWith[DevelopmentCardDeckSize, DevelopmentCardDeckSize, STATE](d => d.copy(d.size - 1))
-      .payToBank(move.player, cost)
-  }
+  def public[II, Inv[_] <: GameState[Inv[II]], Dev, DevInv[_] <: GameState[DevInv[Dev]]](cost: InventorySet[II, Int])(implicit
+    invGen: DeltaGen[Inv[II], Transactions.PerfectInfo[II]],
+    devGen: DeltaGen[DevInv[Dev], ImperfectInfoBuyCard[Dev]]
+  ): GameAction[BuyDevelopmentCardMoveResult[Dev], Turn :: HNil, Delta[DevelopmentCardDeckSize] :+: Delta[DevInv[Dev]] :+: Delta[Bank[II]] :+: Delta[Inv[II]] :+: CNil] =
+    GameAction.fromState[BuyDevelopmentCardMoveResult[Dev], Turn :: HNil] { case (move, state) =>
+      val turn = state.select[Turn].t
+      DeltaList()
+        .add[Inv[II]](Transactions.Gain(move.player, cost))
+        .add[Bank[II]](Bank.Add(cost))
+        .add[DevInv[Dev]](ImperfectInfoBuyCard(move.card, move.player, turn))
+        .add[DevelopmentCardDeckSize](DevelopmentCardDeck.Remove)
+        .toList
+    }
+
+  def perfect[II, Inv[_] <: GameState[Inv[II]], Dev, DevInv[_] <: GameState[DevInv[Dev]]](cost: InventorySet[II, Int])(implicit
+    invGen: DeltaGen[Inv[II], Transactions.PerfectInfo[II]],
+    devGen: DeltaGen[DevInv[Dev], PerfectInfoBuyCard[Dev]]
+  ): GameAction[PerfectInfoBuyDevelopmentCardMoveResult[Dev], Turn :: HNil, Delta[DevelopmentCardDeckSize] :+: Delta[DevInv[Dev]] :+: Delta[Bank[II]] :+: Delta[Inv[II]] :+: CNil] =
+    GameAction.fromState[PerfectInfoBuyDevelopmentCardMoveResult[Dev], Turn :: HNil] { case (move, state) =>
+      val turn = state.select[Turn].t
+      DeltaList()
+        .add[Inv[II]](Transactions.Gain(move.player, cost))
+        .add[Bank[II]](Bank.Add(cost))
+        // TODO: error handling to ensure that the Deck is not empty and
+        //  that the move result is the same card as the top of the deck
+        .add[DevInv[Dev]](PerfectInfoBuyCard(move.card, move.player, turn))
+        .add[DevelopmentCardDeckSize](DevelopmentCardDeck.Remove)
+        .toList
+    }
+
 }
 
-class PerfectInfoBuyDevelopmentCardAction[Res, ResInv[_], Dev, DevInv[_]](cost: InventorySet[Res, Int])(implicit
-    res: ResourceInventories[Res, Transactions.PerfectInfo[Res], ResInv],
-    dev: DevelopmentCardInventories[Dev, DevInv],
-    buyDev: BuyDevelopmentCard[PerfectInfoBuyCard[Dev], DevInv[Dev]]
-) extends GameAction[PerfectInfoBuyDevelopmentCardMoveResult[Dev], DevInv[Dev] :: DevelopmentCardDeck[Dev] :: ResInv[Res] :: Bank[Res] :: Turn :: HNil] {
-
-  override def apply(
-      move: PerfectInfoBuyDevelopmentCardMoveResult[Dev],
-      state: DevInv[Dev] :: DevelopmentCardDeck[Dev] :: ResInv[Res] :: Bank[Res] :: Turn :: HNil
-  ): DevInv[Dev] :: DevelopmentCardDeck[Dev] :: ResInv[Res] :: Bank[Res] :: Turn :: HNil = {
-    val dep              = DependsOn.single[STATE]
-    implicit val turnDep = dep.innerDependency[Turn :: HNil]
-    implicit val invDep  = dep.innerDependency[Bank[Res] :: ResInv[Res] :: HNil]
-    state
-      .updateWith[DevInv[Dev], DevInv[Dev], STATE](_.buyCard(move.player, state.turn, PerfectInfoBuyCard[Dev](move.card)))
-      // TODO: error handling to ensure that the Deck is not empty and
-      //  that the move result is the same card as the top of the deck
-      .updateWith[DevelopmentCardDeck[Dev], DevelopmentCardDeck[Dev], STATE](deck => deck.copy(cards = deck.cards.tail))
-      .payToBank(move.player, cost)
-  }
-}

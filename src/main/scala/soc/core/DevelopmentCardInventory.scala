@@ -1,6 +1,9 @@
 package soc.core
 
-import soc.core.DevTransactions.{ImperfectInfoBuyCard, PerfectInfoBuyCard}
+import game.GameState
+import shapeless.{:+:, CNil, Poly2}
+import soc.core.DevTransactions.{ImperfectInfoBuyCard, PerfectInfoBuyCard, PlayCard}
+import soc.core.DevelopmentCardInventories.{PrivateDevInvPoly, PublicDevInvPoly}
 
 trait BuyDevelopmentCard[T, Inv] {
   def apply(t: Inv, player: Int, turn: Int, transaction: T): Inv
@@ -8,77 +11,79 @@ trait BuyDevelopmentCard[T, Inv] {
 
 object DevTransactions {
 
-  case class PerfectInfoBuyCard[Card](card: Card)
+  case class PerfectInfoBuyCard[Card](card: Card, player: Int, turn: Int)
 
-  case class ImperfectInfoBuyCard[Card](card: Option[Card])
+  case class ImperfectInfoBuyCard[Card](card: Option[Card], player: Int, turn: Int)
+
+  case class PlayCard[Card](card: Card, player: Int, turn: Int)
 }
 
-trait DevelopmentCardInventories[Card, T[_]] {
+//trait DevelopmentCardInventories[Card, T[_]] {
+//
+//  def numCards(t: T[Card], player: Int): Int
+//
+//  def playCard(t: T[Card], player: Int, card: Card): T[Card]
+//
+//  def buyCard[Transaction](t: T[Card], player: Int, turn: Int, transaction: Transaction)(implicit devTransactions: BuyDevelopmentCard[Transaction, T[Card]]): T[Card] = {
+//    devTransactions.apply(t, player, turn, transaction)
+//  }
+//}
 
-  def numCards(t: T[Card], player: Int): Int
+case class PublicDevCardInv[Card](m: Map[Int, Int]) extends GameState[PublicDevCardInv[Card]] {
+  override type Delta = ImperfectInfoBuyCard[Card] :+: PlayCard[Card] :+: CNil
 
-  def playCard(t: T[Card], player: Int, card: Card): T[Card]
-
-  def buyCard[Transaction](t: T[Card], player: Int, turn: Int, transaction: Transaction)(implicit devTransactions: BuyDevelopmentCard[Transaction, T[Card]]): T[Card] = {
-    devTransactions.apply(t, player, turn, transaction)
-  }
+  override def apply(delta: Delta): PublicDevCardInv[Card] = PublicDevCardInv[Card](delta.foldLeft(m)(PublicDevInvPoly))
 }
 
-case class PublicDevCardInv(m: Map[Int, Int])
+case class PrivateDevCardInv[Card](m: Map[Int, Seq[(Card, Int)]]) extends GameState[PrivateDevCardInv[Card]] {
+  override type Delta = PerfectInfoBuyCard[Card] :+: PlayCard[Card] :+: CNil
+
+  override def apply(delta: Delta): PrivateDevCardInv[Card] = PrivateDevCardInv[Card](delta.foldLeft(m)(PrivateDevInvPoly))
+}
+
 
 object DevelopmentCardInventories {
 
-  type PublicDevelopmentCards[_]     = PublicDevCardInv
-  type PrivateDevelopmentCards[Card] = Map[Int, Seq[(Card, Int)]]
+  //type PublicDevelopmentCards[_]     = PublicDevCardInv
+  //type PrivateDevelopmentCards[Card] = Map[Int, Seq[(Card, Int)]]
 
-  implicit class DevelopmentCardInventoriesOps[Card, T[_]](inv: T[Card])(implicit ev: DevelopmentCardInventories[Card, T]) {
+  //  implicit class DevelopmentCardInventoriesOps[Card, T[_]](inv: T[Card])(implicit ev: DevelopmentCardInventories[Card, T]) {
+  //
+  //    def numCards(player: Int): Int = ev.numCards(inv, player)
+  //
+  //    def playCard(player: Int, card: Card): T[Card] = ev.playCard(inv, player, card)
+  //
+  //    def buyCard[Transaction](player: Int, turn: Int, transaction: Transaction)(implicit devTransactions: BuyDevelopmentCard[Transaction, T[Card]]) = {
+  //      ev.buyCard(inv, player, turn, transaction)
+  //    }
+  //  }
 
-    def numCards(player: Int): Int = ev.numCards(inv, player)
+  object PublicDevInvPoly extends Poly2 {
 
-    def playCard(player: Int, card: Card): T[Card] = ev.playCard(inv, player, card)
+    implicit def buy[Card]: Case.Aux[Map[Int, Int], ImperfectInfoBuyCard[Card], Map[Int, Int]] =
+      at[Map[Int, Int], ImperfectInfoBuyCard[Card]] { case (m, b) => m + (b.player -> (m.getOrElse(b.player, 0) + 1)) }
 
-    def buyCard[Transaction](player: Int, turn: Int, transaction: Transaction)(implicit devTransactions: BuyDevelopmentCard[Transaction, T[Card]]) = {
-      ev.buyCard(inv, player, turn, transaction)
-    }
+    implicit def play[Card]: Case.Aux[Map[Int, Int], PlayCard[Card], Map[Int, Int]] =
+      at[Map[Int, Int], PlayCard[Card]] { case (m, p) => m + (p.player -> m.get(p.player).fold(0)(_ - 1)) }
+
   }
 
-  implicit def publicBuyDevCard[Card]: BuyDevelopmentCard[ImperfectInfoBuyCard[Card], PublicDevelopmentCards[Card]] = {
-    (t: PublicDevelopmentCards[Card], player: Int, _: Int, _: ImperfectInfoBuyCard[Card]) =>
-      {
-        PublicDevCardInv(t.m + (player -> (t.m.getOrElse(player, 0) + 1)))
+  object PrivateDevInvPoly extends Poly2 {
+
+    type Inv[Card] = Map[Int, Seq[(Card, Int)]]
+
+    implicit def buy[Card]: Case.Aux[Inv[Card], PerfectInfoBuyCard[Card], Inv[Card]] =
+      at[Inv[Card], PerfectInfoBuyCard[Card]] { case (m, b) => m + (b.player -> m.get(b.player).fold[Seq[(Card, Int)]](Nil)(_ :+ (b.card, b.turn))) }
+
+    implicit def play[Card]: Case.Aux[Inv[Card], PlayCard[Card], Inv[Card]] =
+      at[Inv[Card], PlayCard[Card]] { case (m, p) => m + (p.player -> m
+        .get(p.player)
+        .map {
+          _.sortWith { case ((c1, t1), (c2, t2)) =>
+            if (c1 == c2) t1 < t2 else c1 == p.card
+          }.drop(1)
+        }
+        .getOrElse(Nil))
       }
   }
-
-  implicit def publicDevelopmentCardInventories[Card]: DevelopmentCardInventories[Card, PublicDevelopmentCards] = {
-    new DevelopmentCardInventories[Card, PublicDevelopmentCards] {
-      override def numCards(t: PublicDevelopmentCards[Card], player: Int): Int = t.m.getOrElse(player, 0)
-
-      override def playCard(t: PublicDevelopmentCards[Card], player: Int, card: Card): PublicDevelopmentCards[Card] =
-        PublicDevCardInv(t.m + (player -> (numCards(t, player) - 1)))
-    }
-  }
-
-  implicit def privateBuyDevCard[Card]: BuyDevelopmentCard[PerfectInfoBuyCard[Card], PrivateDevelopmentCards[Card]] = {
-    (t: PrivateDevelopmentCards[Card], player: Int, turn: Int, buy: PerfectInfoBuyCard[Card]) =>
-      {
-        t + (player -> t.get(player).fold[Seq[(Card, Int)]](Nil)(_ :+ (buy.card, turn)))
-      }
-  }
-
-  implicit def perfectInfoDevelopmentCardInventories[Card]: DevelopmentCardInventories[Card, PrivateDevelopmentCards] =
-    new DevelopmentCardInventories[Card, PrivateDevelopmentCards] {
-      override def numCards(t: PrivateDevelopmentCards[Card], player: Int): Int =
-        t.get(player).fold(0)(_.size)
-
-      override def playCard(m: PrivateDevelopmentCards[Card], player: Int, card: Card): PrivateDevelopmentCards[Card] = {
-        m + (player -> m
-          .get(player)
-          .map {
-            _.sortWith { case ((c1, t1), (c2, t2)) =>
-              if (c1 == c2) t1 < t2 else c1 == card
-            }.drop(1)
-          }
-          .getOrElse(Nil))
-      }
-    }
 }

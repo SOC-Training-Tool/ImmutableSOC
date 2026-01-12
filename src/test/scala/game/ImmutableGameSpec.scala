@@ -1,16 +1,55 @@
-//package game
-//
-//import game.ActionExtension.{Ext, noop}
-//import org.scalatest.{FunSpec, Matchers}
-//import shapeless.ops.coproduct.At.Aux
-//import shapeless.ops.hlist.Length
-//import shapeless.ops.{coproduct, hlist}
-//import shapeless.{:+:, ::, CNil, Coproduct, DepFn1, DepFn2, HList, HNil, Nat, Poly, Poly1, PolyDefns, Succ, _0}
-//import soc.core.actions.MoveCountExtension
-//import soc.core.state
-//import util.DependsOn
-//
-//class ImmutableGameSpec extends FunSpec with Matchers {
+package game
+
+import game.Delta.DeltaGen._
+import org.scalatest.{FunSpec, Matchers}
+import shapeless.{:+:, ::, CNil, HNil}
+
+class ImmutableGameSpec extends FunSpec with Matchers {
+
+  case class M1(i: Int)
+
+  case class M2()
+
+  case class Foo(i: Int) extends GameState[Foo] {
+    type Delta = Double :+: String :+: CNil
+
+    override def apply(delta: :+:[Double, String :+: CNil]): Foo = Foo(i + delta.select[String].fold(0)(_.toInt))
+  }
+
+  case class Bar(s: String) extends GameState[Bar] {
+    type Delta = String :+: Long :+: Int :+: CNil
+
+    override def apply(delta: :+:[String, Long :+: Int :+: CNil]): Bar = Bar(s + delta.select[String].getOrElse(""))
+  }
+
+  implicit val m1Action: GameAction[M1, Bar :: HNil, Delta[Foo] :+: CNil]                = GameAction[M1, Bar :: HNil] { case (m1, state) =>
+    DeltaList().add[Foo](state.select[Bar].s + m1.i.toString).apply()
+  }
+  implicit val m2Action: GameAction[M2, Foo :: HNil, Delta[Foo] :+: Delta[Bar] :+: CNil] = GameAction[M2, Foo :: HNil] { case (_, state) =>
+    val foo = state.select[Foo]
+    DeltaList()
+      .add[Bar]()
+      .add[Foo](foo.i.toDouble)
+      .add[Bar](foo.i)
+      .apply()
+  }
+
+  val game: ImmutableGame.Aux[M1 :+: M2 :+: CNil, Foo :: Bar :: HNil, Delta[Foo] :+: Delta[Bar] :+: CNil] = ImmutableGame.apply[M1 :+: M2 :+: CNil]()
+
+  describe("Immutable Game") {
+
+    it("should update the state on action") {
+      val move = M1(1)
+      val initState = Foo(0) :: Bar("0") :: HNil
+
+      val result = game.apply(move, initState)
+      result._2.select[Foo] shouldBe Foo(1)
+    }
+
+  }
+
+
+}
 //
 //  case object IntAction extends GameAction[Int, Int :: HNil] {
 //    override def applyMove[GAME_STATE <: HList](move: Int, state: GAME_STATE)(implicit dep: DependsOn[GAME_STATE, Int :: HNil]) = {

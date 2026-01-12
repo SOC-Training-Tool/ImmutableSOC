@@ -2,6 +2,7 @@ package game
 
 import game.Delta.LiftAllDelta.Aux
 import game.Delta.{ApplyDeltas, DeltaApply, ExtractState, LiftAllDelta}
+import game.ImmutableGame.ApplyActionOnMove
 import shapeless.ops.hlist.Union
 import shapeless.ops.{coproduct, hlist}
 import shapeless.{:+:, ::, <:!<, CNil, Coproduct, DepFn1, DepFn2, Generic, HList, HNil, Nat, Poly, Poly0, Poly1, Poly2}
@@ -15,11 +16,13 @@ trait ImmutableGame[MOVES <: Coproduct, STATE <: HList] {
 
   def applyMove(move: MOVES, state: STATE): (List[DELTA], STATE)
 
-  //  def apply[M, S <: HList, R <: HList](move: M, state: S)(implicit inject: coproduct.Inject[MOVES, M], remove: hlist.RemoveAll.Aux[S, STATE, (STATE, R)]): S = {
-  //    val (s, remainder) = remove.apply(state)
-  //    val post = applyMove(inject.apply(move), s)
-  //    remove.reinsert((post, remainder))
-  //  }
+    def apply[M, S <: HList, R <: HList, D <: Coproduct](move: M, state: S)(implicit inject: coproduct.Inject[MOVES, M], remove: hlist.RemoveAll.Aux[S, STATE, (STATE, R)], liftAllDelta: LiftAllDelta.Aux[S, D], embed: coproduct.Basis[D, DELTA]): (List[D], S) = {
+      val (s, remainder) = remove.apply(state)
+      val (deltas, post) = applyMove(inject.apply(move), s)
+      val newState = remove.reinsert((post, remainder))
+      val newDeltas =deltas.map(_.embed[D])
+      (newDeltas, newState)
+    }
   //
   //  case class AlignApply[M <: Coproduct, S <: HList]() {
   //    def apply[R <: HList]()(implicit basis: coproduct.Basis[MOVES, M], ra: hlist.RemoveAll.Aux[S, STATE, (STATE, R)]): ImmutableGame[M, S] = { (move: M, state: S) =>
@@ -108,56 +111,94 @@ object ImmutableGame {
 
   // val builder = new GameBuilder[HNil, HNil](HNil, HNil)
 
+  type Aux[M <: Coproduct, S <: HList, D <: Coproduct] = ImmutableGame[M, S] { type DELTA = D}
+
   object ApplyActionOnMove extends Poly1 {
     implicit def onMove[M, STATE <: HList, DELTA <: Coproduct, S <: HList, DL <: Coproduct](
       implicit
       action: GAction.Aux[M, S, DL],
-      basis: coproduct.Basis[DELTA, DL],
       dep: DependsOn[STATE, S]
-    ): Case.Aux[(M, STATE), List[DELTA]] = at { case (move, state) =>
-      action.apply(move, dep.getAll(state)).map(_.embed[DELTA])
+    ): Case.Aux[(M, STATE), List[DL]] = at { case (move, state) =>
+      action.apply().foldLeft((move, state, Nil)) { case ((move, state, deltas), f) =>
+        val newDeltas =
+
+      }
     }
   }
 
-  //
-  //      at { case (move, state) => dep.updateAll(state)(s => Delta.applyState(s, action.apply(move, dep2.getAll(s))))}
-  //    }
+  object EmbedDeltasPoly extends Poly1 {
 
+    implicit def onDeltas[DL <: Coproduct, DELTA <: Coproduct]: Case.Aux[(List[DL], coproduct.Basis[DELTA, DL]), List[DELTA]] =
+      at { case (deltas: List[DL], basis: coproduct.Basis[DELTA, DL]) => deltas.map(_.embed[DELTA](basis)) }
+  }
 
-  final case class MakeApply[MOVE <: Coproduct, STATE <: HList]() {
-    def apply[D <: Coproduct, Z1 <: Coproduct, Z2 <: Coproduct, F1 <: shapeless.Poly, F2 <: shapeless.Poly]()(
+  trait EmbedDeltas[DL <: Coproduct, DELTA <: Coproduct] {
+    type Out <: HList
+
+    def instances: Out
+  }
+
+  object EmbedDeltas {
+    type Aux[DL <: Coproduct, DELTA <: Coproduct, Out0 <: HList] = EmbedDeltas[DL, DELTA] {type Out = Out0}
+
+    def apply[DL <: Coproduct, DELTA <: Coproduct](implicit ed: EmbedDeltas[DL, DELTA]): Aux[DL, DELTA, ed.Out] = ed
+
+    implicit def recur[H <: Coproduct, T <: Coproduct, DELTA <: Coproduct](implicit basis: coproduct.Basis[DELTA, H], next: EmbedDeltas[T, DELTA]): Aux[List[H] :+: T, DELTA, coproduct.Basis[DELTA, H] :: next.Out] = new EmbedDeltas[List[H] :+: T, DELTA] {
+
+      override type Out = coproduct.Basis[DELTA, H] :: next.Out
+
+      override def instances: Out = basis :: next.instances
+    }
+
+    implicit def cnil[C <: Coproduct]: Aux[CNil, C, HNil] = new EmbedDeltas[CNil, C] {
+      type Out = HNil
+
+      override def instances: Out = HNil
+    }
+
+  }
+
+  final case class MakeApply[MOVE <: Coproduct, STATE <: HList, D <: Coproduct]() {
+    def apply[Z1 <: Coproduct, MOut <: Coproduct, EM <: HList, Z2 <: Coproduct, Z3 <: Coproduct, F1 <: shapeless.Poly, F2 <: shapeless.Poly, F3 <: shapeless.Poly]()(
       implicit
-      zipper1: coproduct.ZipConst.Aux[STATE, MOVE, Z1],
-      folder1: coproduct.Folder.Aux[F1, Z1, List[D]],
-      zipper2: coproduct.ZipConst.Aux[STATE, D, Z2],
-      folder2: coproduct.Folder.Aux[F2, Z2, STATE],
-    ): ImmutableGame[MOVE, STATE] = new ImmutableGame[MOVE, STATE] {
+      zipper1: coproduct.ZipConst.Aux[STATE, MOVE, Z1], // coproduct of move state tuples
+      mapper1: coproduct.Mapper.Aux[F1, Z1, MOut], // coproduct of List of Sub Delta coproducts
+      embedder: EmbedDeltas.Aux[MOut, D, EM], // hlist of coproduct.Basis for each Sub Delta coproduct with DELTA super
+      zipper2: coproduct.ZipWith.Aux[EM, MOut, Z2], // coproduct of  List of Sub Delta coproducts and basis tuples
+      mapper2: coproduct.Folder.Aux[F2, Z2, List[D]],
+      zipper3: coproduct.ZipConst.Aux[STATE, D, Z3],
+      folder2: coproduct.Folder.Aux[F3, Z3, STATE],
+    ): Aux[MOVE, STATE, D] = new ImmutableGame[MOVE, STATE] {
       override type DELTA = D
 
       override def applyMove(move: MOVE, state: STATE): (List[DELTA], STATE) = {
-        val deltas: List[D] = folder1.apply(zipper1.apply(state, move))
-        val result          = deltas.foldLeft(state) { case (s, delta) => folder2.apply(delta.zipConst(s)) }
+        val zip1     : Z1      = zipper1.apply(state, move)
+        val subDeltas: MOut    = mapper1.apply(zip1)
+        val basis    : EM      = embedder.instances
+        val zip2     : Z2      = zipper2.apply(basis, subDeltas)
+        val deltas   : List[D] = mapper2.apply(zip2)
+        val result   : STATE   = deltas.foldLeft(state) { case (s, delta) => folder2.apply(delta.zipConst(s)) }
         (deltas, result)
       }
     }
   }
 
   final case class ApplyApply[MOVE <: Coproduct]() {
-    def apply[AL <: HList, STATE <: HList, D <: Coproduct, Z1 <: Coproduct, Z2 <: Coproduct]()(
+    def apply[AL <: HList, STATE <: HList, D <: Coproduct, MOut <: Coproduct, EM <: HList, Z1 <: Coproduct, Z2 <: Coproduct, Z3 <: Coproduct]()(
       implicit
-      actions: CollectActions.Aux[MOVE, AL],
-
-
-      collect: utils2.CollectState.Aux[M, STATE],
+      actions: CollectActionState.Aux[MOVE, STATE],
       lift: LiftAllDelta.Aux[STATE, D],
-      z1: coproduct.ZipConst.Aux[STATE, MOVE, Z1],
-      folder1: coproduct.Folder.Aux[ApplyActionOnMove.type, Z1, List[D]],
-      z2: coproduct.ZipConst.Aux[STATE, D, Z2],
-      folder2: coproduct.Folder.Aux[ApplyDeltas.type, Z2, STATE]
-    ): ImmutableGame[MOVE, STATE] = make[MOVE, STATE]()
+      zipper1: coproduct.ZipConst.Aux[STATE, MOVE, Z1], // coproduct of move state tuples
+      mapper1: coproduct.Mapper.Aux[ApplyActionOnMove.type, Z1, MOut], // coproduct of List of Sub Delta coproducts
+      embedder: EmbedDeltas.Aux[MOut, D, EM], // hlist of coproduct.Basis for each Sub Delta coproduct with DELTA super
+      zipper2: coproduct.ZipWith.Aux[EM, MOut, Z2], // coproduct of  List of Sub Delta coproducts and basis tuples
+      mapper2: coproduct.Folder.Aux[EmbedDeltasPoly.type, Z2, List[D]],
+      zipper3: coproduct.ZipConst.Aux[STATE, D, Z3],
+      folder2: coproduct.Folder.Aux[ApplyDeltas.type, Z3, STATE],
+    ): Aux[MOVE, STATE, D] = make[MOVE, STATE, D]()
   }
 
-  def make[MOVE <: Coproduct, STATE <: HList] = MakeApply[MOVE, STATE]()
+  def make[MOVE <: Coproduct, STATE <: HList, DELTA <: Coproduct] = MakeApply[MOVE, STATE, DELTA]()
 
   def apply[MOVE <: Coproduct] = new ApplyApply[MOVE]
 
@@ -188,290 +229,5 @@ object ImmutableGame {
       gen.from(c.apply())
 
     }
-  }
-}
-
-object utils2 {
-
-  trait CollectState[L <: HList] extends Serializable {
-    type Out <: HList
-  }
-
-  object CollectState {
-
-    type Aux[L <: HList, Out0 <: HList] = CollectState[L] {type Out = Out0}
-
-    def apply[L <: HList](implicit collect: CollectState[L]): Aux[L, collect.Out] = collect
-
-    implicit def recur[H, T <: HList, S1 <: HList, DL <: Coproduct, S2 <: HList, S3 <: HList, S4 <: HList](
-      implicit
-      action: GAction.Aux[H, S1, DL],
-      extractState: ExtractState.Aux[DL, S2],
-      un1: Union.Aux[S1, S2, S3],
-      next: Aux[T, S4],
-      un2: Union[S3, S4]
-    ): Aux[H :: T, un2.Out] = new CollectState[H :: T] {
-      type Out = un2.Out
-    }
-
-    implicit val hnil: Aux[HNil, HNil] = new CollectState[HNil] {
-      type Out = HNil
-    }
-  }
-
-  trait GetMoves[L <: HList] extends Serializable {
-    type Out <: HList
-  }
-
-  object GetMoves {
-
-    type Aux[L <: HList, Out0 <: HList] = GetMoves[L] {type Out = Out0}
-
-    def apply[L <: HList](implicit get: GetMoves[L]): Aux[L, get.Out] = get
-
-    implicit def recur[H, T <: HList, M, S <: HList](implicit ev: H <:< GameAction[M, S], next: GetMoves[T]): Aux[H :: T, M :: next.Out] = new GetMoves[H :: T] {
-      override type Out = M :: next.Out
-    }
-
-    implicit val hnil: Aux[HNil, HNil] = new GetMoves[HNil] {
-      type Out = HNil
-    }
-  }
-
-  trait GetActionsForMoves[L <: HList, M <: HList] extends DepFn1[L] {
-    type Out <: HList
-  }
-
-  object GetActionsForMoves {
-
-    type Aux[L <: HList, M <: HList, Out0 <: HList] = GetActionsForMoves[L, M] {type Out = Out0}
-
-    def apply[L <: HList, M <: HList](implicit get: GetActionsForMoves[L, M]): Aux[L, M, get.Out] = get
-
-    implicit def move[L <: HList, H, T <: HList, ML <: HList, N <: Nat, A](implicit moves: GetMoves.Aux[L, ML], at1: hlist.At.Aux[ML, N, H], at2: hlist.At.Aux[L, N, A], next: GetActionsForMoves[L, T]): Aux[L, H :: T, A :: next.Out] = new GetActionsForMoves[L, H :: T] {
-      override type Out = A :: next.Out
-
-      override def apply(t: L): Out = at2.apply(t) :: next.apply(t)
-    }
-
-    implicit def hnil[L <: HList]: Aux[L, HNil, HNil] = new GetActionsForMoves[L, HNil] {
-      override type Out = HNil
-
-      override def apply(t: L): Out = HNil
-    }
-  }
-
-  trait AddActions[L <: HList, AL <: HList] extends DepFn2[L, AL] {
-    override type Out <: HList
-  }
-
-  object AddActions {
-
-    object ComposeActionMapper extends Poly2 {
-
-      implicit def atCase[A1, A2, M, S1 <: HList, S2 <: HList, SOut <: HList](
-        implicit
-        ev1: A1 <:< GameAction[M, S1],
-        ev2: A2 <:< GameAction[M, S2],
-        un: Union.Aux[S1, S2, SOut],
-        dep1: DependsOn[SOut, S1],
-        dep2: DependsOn[SOut, S2]) = at { (a1: A1, a2: A2) => a1.extend(a2) }
-    }
-
-    type Aux[AL <: HList, L <: HList, Out0 <: HList] = AddActions[AL, L] {type Out = Out0}
-
-    def apply[AL <: HList, L <: HList](implicit add: AddActions[AL, L]): Aux[AL, L, add.Out] = add
-
-    implicit def add[L <: HList, AL <: HList, ML <: HList, AML <: HList, Shared <: HList, R1 <: HList, R2 <: HList, O1 <: HList, O2 <: HList, O3 <: HList, O4 <: HList, Z <: HList, P1 <: HList](
-      implicit
-      allMoves: GetMoves.Aux[L, ML],
-      addMoves: GetMoves.Aux[AL, AML],
-      shared: hlist.Intersection.Aux[ML, AML, Shared],
-      remove1: hlist.RemoveAll.Aux[AML, Shared, (Shared, R1)],
-      remove2: hlist.RemoveAll.Aux[ML, Shared, (Shared, R2)],
-      get1: GetActionsForMoves.Aux[L, Shared, O1],
-      get2: GetActionsForMoves.Aux[AL, Shared, O2],
-      get3: GetActionsForMoves.Aux[L, R2, O3],
-      get4: GetActionsForMoves.Aux[AL, R1, O4],
-      zip: hlist.ZipWith.Aux[O1, O2, ComposeActionMapper.type, Z],
-      prep1: hlist.Prepend.Aux[O4, Z, P1],
-      prep2: hlist.Prepend[P1, O3]
-    ): Aux[L, AL, prep2.Out] = new AddActions[L, AL] {
-      override type Out = prep2.Out
-
-      override def apply(t: L, u: AL): Out = {
-        val a = get1.apply(t)
-        val b = get2.apply(u)
-        val c = get3.apply(t)
-        val d = get4.apply(u)
-        val e = zip.apply(a, b)
-        val f = prep1.apply(d, e)
-        prep2.apply(f, c)
-      }
-    }
-  }
-
-  trait ApplyComposite[L <: HList, A, B] extends DepFn2[L, A => B] {
-    type Out <: HList
-  }
-
-  object ApplyComposite {
-
-    type Aux[L <: HList, A, B, Out0 <: HList] = ApplyComposite[L, A, B] {type Out = Out0}
-
-    def apply[L <: HList, A, B](implicit ac: ApplyComposite[L, A, B]): Aux[L, A, B, ac.Out] = ac
-
-    implicit def composite[H, T <: HList, A, B, S <: HList](
-      implicit ev1: H <:< GameAction[B, S]
-    ): ApplyComposite.Aux[H :: T, A, B, H :: GameAction[A, S] :: T] = new ApplyComposite[H :: T, A, B] {
-      override type Out = H :: GameAction[A, S] :: T
-
-      override def apply(t: H :: T, u: A => B): Out = {
-        val action = t.head
-        action :: action.compose(u) :: t.tail
-      }
-    }
-
-    implicit def recur[H, T <: HList, M, A, B, S <: HList](
-      implicit
-      ev1: H <:< GameAction[M, S],
-      ev2: M <:!< B,
-      next: ApplyComposite[T, A, B]
-    ): ApplyComposite.Aux[H :: T, A, B, H :: next.Out] = new ApplyComposite[H :: T, A, B] {
-      override type Out = H :: next.Out
-
-      override def apply(t: H :: T, u: A => B): Out = t.head :: next.apply(t.tail, u)
-    }
-
-    implicit def hnil[A, B]: ApplyComposite[HNil, A, B] = new ApplyComposite[HNil, A, B] {
-      override type Out = HNil
-
-      override def apply(t: HNil, u: A => B): HNil = HNil
-    }
-  }
-
-  final case class CompositeFunction[A, B](f: A => B)
-
-  object FoldCompositeFunctions extends Poly2 {
-
-    implicit def onComp[L <: HList, H, A, B, Out <: HList](implicit ev: H <:< CompositeFunction[A, B], applyComp: ApplyComposite.Aux[L, A, B, Out]): Case.Aux[L, H, Out] = at { (l, comp) =>
-      applyComp.apply(l, comp.f)
-    }
-  }
-
-  trait MovesCoproduct[L <: HList] extends Serializable {
-    type Out <: Coproduct
-  }
-
-  object MovesCoproduct {
-
-    type Aux[L <: HList, Out0 <: Coproduct] = MovesCoproduct[L] {type Out = Out0}
-
-    def apply[L <: HList](implicit mc: MovesCoproduct[L]): Aux[L, mc.Out] = mc
-
-    implicit def recur[H, T <: HList, M, S <: HList](implicit ev: H <:< GameAction[M, S], next: MovesCoproduct[T]): Aux[H :: T, M :+: next.Out] = new MovesCoproduct[H :: T] {
-      type Out = M :+: next.Out
-    }
-
-    implicit val hnilMove: Aux[HNil, CNil] = new MovesCoproduct[HNil] {
-      type Out = CNil
-    }
-  }
-
-  trait StateHList[L <: HList] extends Serializable {
-    type Out <: HList
-  }
-
-  object StateHList {
-
-    type Aux[L <: HList, Out0 <: HList] = StateHList[L] {type Out = Out0}
-
-    def apply[L <: HList](implicit sh: StateHList[L]): Aux[L, sh.Out] = sh
-
-    implicit def row[H, T <: HList, M, S <: HList, TOut <: HList, Out0 <: HList](
-      implicit
-      ev: H <:< GameAction[M, S],
-      next: StateHList.Aux[T, TOut],
-      un: hlist.Union.Aux[S, TOut, Out0]
-    ): Aux[H :: T, Out0] = new StateHList[H :: T] {
-      type Out = Out0
-    }
-
-    implicit val hnilState: Aux[HNil, HNil] = new StateHList[HNil] {
-      type Out = HNil
-    }
-  }
-
-  trait ComposeMove[A, B] extends Serializable {
-    type S <: HList
-
-    def apply(a: A, s: S): B
-  }
-
-  object ComposeMove {
-
-    type Aux[A, B, S0 <: HList] = ComposeMove[A, B] {type S = S0}
-
-    def apply[A, B](implicit comp: ComposeMove[A, B]): Aux[A, B, comp.S] = comp
-
-    def at[A, B](f: A => B): Aux[A, B, HNil] = new ComposeMove[A, B] {
-      type S = HNil
-
-      def apply(a: A, s: S): B = f(a)
-    }
-
-    def at[A, B, S0 <: HList](f: (A, S0) => B): Aux[A, B, S0] = new ComposeMove[A, B] {
-      override type S = S0
-
-      override def apply(a: A, s: S0): B = f(a, s)
-    }
-
-  }
-
-  trait MultiMoveAction[MOVES <: Coproduct, A] extends DepFn1[A] {
-    type Out <: HList
-  }
-
-  object MultiMoveAction {
-
-
-    type Aux[MOVES <: Coproduct, A, Out0 <: HList] = MultiMoveAction[MOVES, A] {type Out = Out0}
-
-    def apply[MOVES <: Coproduct, A](implicit m: MultiMoveAction[MOVES, A]): Aux[MOVES, A, m.Out] = m
-
-    implicit def cnil[A]: Aux[CNil, A, HNil] = new MultiMoveAction[CNil, A] {
-      type Out = HNil
-
-      def apply(a: A): HNil = HNil
-    }
-
-    implicit def recur[H, T <: Coproduct, A, M, S <: HList, S0 <: HList, Out0 <: HList](
-      implicit
-      ev: A <:< GameAction[M, S],
-      folder: ComposeMove.Aux[H, M, S0],
-      un: hlist.Union.Aux[S, S0, Out0],
-      s1: hlist.SelectAll[Out0, S],
-      s2: hlist.SelectAll[Out0, S0],
-      next: MultiMoveAction[T, A]
-    ): Aux[H :+: T, A, GameAction[H, Out0] :: next.Out] = new MultiMoveAction[H :+: T, A] {
-      type Out = GameAction[H, Out0] :: next.Out
-
-      def apply(a: A): GameAction[H, Out0] :: next.Out =
-        a.composeS[H, S0, Out0](folder.apply) :: next.apply(a)
-    }
-  }
-
-  object CollapseGlobalActions extends Poly2 {
-    implicit def extend[A, B, Out](implicit ex: ExtendAction.Aux[A, B, Out]): Case.Aux[A, B, Out] = at(ex.apply)
-  }
-
-  object MapGlobalActions extends Poly1 {
-    implicit def extend[A, B, Out](implicit ex: ExtendAction.Aux[A, B, Out]): Case.Aux[(A, B), Out] = at((ex.apply _).tupled)
-  }
-
-  object ApplyActionFolder extends Poly1 {
-    implicit def applyMove[M, S <: HList, S0 <: HList, A](implicit ev: A <:< GameAction[M, S], dep: DependsOn[S0, S]): Case.Aux[((M, A), S0), S0] =
-      at[((M, A), S0)] { case ((move, action), state) => dep.updateAll(state)(action.apply(move, _)) }
-
   }
 }

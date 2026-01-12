@@ -1,20 +1,22 @@
 package soc.base.actions
 
-import game.GameAction
-import shapeless.{::, HNil}
+import game.Delta.DeltaGen
+import game.{Delta, DeltaList, GameAction, GameState}
+import shapeless.{:+:, CNil, HNil}
 import soc.base.PortTradeMove
-import soc.core.ResourceInventories
-import soc.core.Transactions.PerfectInfo
+import soc.core.Transactions
 import soc.core.state.Bank
-import soc.core.state.ops.BankInvOps
-import util.DependsOn
 
-class PortTradeAction [II, INV[_]](implicit inv: ResourceInventories[II, PerfectInfo[II], INV]) extends GameAction[PortTradeMove[II], Bank[II] :: INV[II] :: HNil] {
+object PortTradeAction {
 
-  override def apply(move: PortTradeMove[II], state: Bank[II] :: INV[II] :: HNil): Bank[II] :: INV[II] :: HNil = {
-    implicit val dep = DependsOn.single[Bank[II] :: INV[II] :: HNil]
-    state
-      .payToBank(move.player, move.give)
-      .getFromBank(move.player, move.get)
-  }
+  def apply[II, Inv[_] <: GameState[Inv[II]]]()(implicit gen: DeltaGen[Inv[II], Transactions.PerfectInfo[II]]): GameAction[PortTradeMove[II], HNil, Delta[Bank[II]] :+: Delta[Inv[II]] :+: CNil] =
+    GameAction.apply[PortTradeMove[II]] { move =>
+      DeltaList()
+        .add[Inv[II]](Transactions.Lose(move.player, move.give))
+        .add[Bank[II]](Bank.Add(move.give))
+        .add[Bank[II]](Bank.Take(move.get))
+        .add[Inv[II]](Transactions.Gain(move.player, move.get))
+        .toList
+    }
+
 }

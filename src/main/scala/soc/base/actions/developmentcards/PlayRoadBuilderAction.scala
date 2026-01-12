@@ -1,20 +1,19 @@
 package soc.base.actions.developmentcards
 
-import game.GameAction
+import game.{Delta, DeltaList, GameAction}
 import shapeless.ops.coproduct
-import shapeless.{:+:, ::, CNil, Coproduct, HNil}
-import soc.base.{PlayRoadBuilderMove, RoadBuilder}
-import soc.base.state.ops.BuildRoadStateOps
-import soc.core.state.{EdgeBuildingState, Turn}
-import soc.core.{DevelopmentCardInventories, Road}
-import util.DependsOn
-import util.opext.Embedder
+import shapeless.{:+:, CNil, Coproduct, HNil}
+import soc.base.PlayRoadBuilderMove
+import soc.core.Road
+import soc.core.state.{BoardBuildingState, EdgeBuildingState}
 
-class PlayRoadBuilderAction[EB <: Coproduct](implicit roadEmbedder: Embedder[EB, Road.type :+: CNil]) extends GameAction[PlayRoadBuilderMove, EdgeBuildingState[EB] :: HNil] {
+object PlayRoadBuilderAction {
 
-  override def apply(move: PlayRoadBuilderMove, state: EdgeBuildingState[EB] :: HNil): EdgeBuildingState[EB] :: HNil = {
-    implicit val dep = DependsOn.single[EdgeBuildingState[EB] :: HNil]
-    val result       = state.addRoad(move.edge1, move.player)
-    move.edge2.fold(result)(e => result.addRoad(e, move.player))
-  }
+  def apply[EB <: Coproduct](implicit inject: coproduct.Inject[EB, Road.type]): GameAction[PlayRoadBuilderMove, HNil, Delta[EdgeBuildingState[EB]] :+: CNil] =
+    GameAction.apply[PlayRoadBuilderMove] { move =>
+      val roads = List(Some(move.edge1), move.edge2).flatten
+      DeltaList()
+        .add[EdgeBuildingState[EB]](roads.map(r => BoardBuildingState.add(r, Road, move.player)): _*)
+        .toList
+    }
 }

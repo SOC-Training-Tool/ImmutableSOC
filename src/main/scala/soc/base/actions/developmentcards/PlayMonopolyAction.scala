@@ -1,6 +1,7 @@
 package soc.base.actions.developmentcards
 
-import game.{GameAction, InventorySet}
+import game.Delta.DeltaGen
+import game.{GameAction, GameState, InventorySet}
 import shapeless.ops.coproduct
 import shapeless.{::, Coproduct, HNil}
 import soc.base
@@ -9,6 +10,14 @@ import soc.core.ResourceInventories.ResourceInventoriesOp
 import soc.core.Transactions.{Gain, Lose}
 import soc.core.{DevelopmentCardInventories, ResourceInventories, Transactions}
 import util.DependsOn
+
+object PlayMonopolyAction {
+
+  def apply[II, Inv[_] <: GameState[Inv[II]]](implicit gen: DeltaGen[Inv[II], Transactions.PerfectInfo[II]]) =
+    GameAction.fromState[PlayMonopolyMoveResult[II], Inv[II] :: HNil]
+
+}
+
 
 class PlayMonopolyAction[Res, ResInv[_]](implicit res: ResourceInventories[Res, Transactions.PerfectInfo[Res], ResInv]) extends GameAction[PlayMonopolyMoveResult[Res], ResInv[Res] :: HNil] {
 

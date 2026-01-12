@@ -1,24 +1,22 @@
 package soc.base.actions.build
 
-import game.{GameAction, InventorySet}
-import shapeless.{:+:, ::, CNil, Coproduct, HNil}
-import soc.base.state.ops._
-import soc.core.Transactions.PerfectInfo
-import soc.core.state.ops.BankInvOps
-import soc.core.state.{Bank, PlayerPoints, VertexBuildingState}
-import soc.core.{BuildSettlementMove, ResourceInventories, Settlement}
-import util.DependsOn
-import util.opext.Embedder
+import game.Delta.DeltaGen
+import game.{Delta, DeltaList, GameAction, GameState, InventorySet}
+import shapeless.{:+:, CNil, Coproduct, HNil}
+import shapeless.ops.coproduct
+import soc.core.state.{Bank, BoardBuildingState, PlayerPoints, VertexBuildingState}
+import soc.core.{BuildSettlementMove, Settlement, Transactions, Vertex}
 
-class BuildSettlementAction[Res, Inv[_], VB <: Coproduct](cost: InventorySet[Res, Int])(implicit
-    inv: ResourceInventories[Res, PerfectInfo[Res], Inv],
-    settleEmbedder: Embedder[VB, Settlement.type :+: CNil]
-) extends GameAction[BuildSettlementMove, VertexBuildingState[VB] :: PlayerPoints :: Bank[Res] :: Inv[Res] :: HNil] {
+object BuildSettlementAction {
 
-  override def apply(move: BuildSettlementMove, state: VertexBuildingState[VB] :: PlayerPoints :: Bank[Res] :: Inv[Res] :: HNil): VertexBuildingState[VB] :: PlayerPoints :: Bank[Res] :: Inv[Res] :: HNil = {
-    val dep              = DependsOn.single[VertexBuildingState[VB] :: PlayerPoints :: Bank[Res] :: Inv[Res] :: HNil]
-    implicit val settleDep = dep.innerDependency[VertexBuildingState[VB] :: PlayerPoints :: HNil]
-    implicit val invDep   = dep.innerDependency[Bank[Res] :: Inv[Res] :: HNil]
-    state.placeSettlement(move.vertex, move.player).payToBank(move.player, cost)
-  }
+  def apply[II, Inv[_] <: GameState[Inv[II]], VB <: Coproduct](cost: InventorySet[II, Int])(implicit gen: DeltaGen[Inv[II], Transactions.PerfectInfo[II]], inject: coproduct.Inject[VB, Settlement.type]): GameAction[BuildSettlementMove, HNil, Delta[PlayerPoints] :+: Delta[Bank[II]] :+: Delta[Inv[II]] :+: Delta[VertexBuildingState[VB]] :+: CNil] =
+    GameAction.apply[BuildSettlementMove] { move =>
+      DeltaList()
+        .add[VertexBuildingState[VB]](BoardBuildingState.add(move.vertex, Settlement, move.player))
+        .add[Inv[II]](Transactions.Lose(move.player, cost))
+        .add[Bank[II]](Bank.Add(cost))
+        .add[PlayerPoints](PlayerPoints.Increment(move.player))
+        .toList
+    }
+
 }

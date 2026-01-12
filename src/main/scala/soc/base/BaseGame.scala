@@ -1,6 +1,7 @@
 package soc.base
 
-import game.ImmutableGame
+import game.Delta.DeltaGen
+import game.{GameState, ImmutableGame}
 import shapeless.{:+:, ::, CNil, HNil}
 import soc.base.DevelopmentCards._
 import soc.base.actions._
@@ -25,23 +26,23 @@ object BaseGame {
   type BaseEdgeBuilding   = Road.type :+: CNil
 
   val longestRoadExtension = new LongestRoadExtension[Resource, BaseVertexBuilding, BaseEdgeBuilding, BaseBoard[Resource]]()
-  class CoreImplicits[Inv[_], DInv[_]](implicit inv: ResourceInventories[Resource, PerfectInfo[Resource], Inv], dInv: DevelopmentCardInventories[DevelopmentCard, DInv]) {
+  class CoreImplicits[Inv[_] <: GameState[Inv[Resource]], DInv[_] <: GameState[DInv[DevelopmentCard]]](implicit rDG: DeltaGen[Inv[Resource], PerfectInfo[Resource]]) {
 
-    implicit val buildSettlementAction = new BuildSettlementAction[Resource, Inv, BaseVertexBuilding](ResourceSet(WOOD, BRICK, WHEAT, SHEEP))
+    implicit val buildSettlementAction = BuildSettlementAction[Resource, Inv, BaseVertexBuilding](ResourceSet(WOOD, BRICK, WHEAT, SHEEP)).
       .exposeS(longestRoadExtension) { (move: BuildSettlementMove, state: BaseBoard[Resource] :: HNil) =>
         import SOCBoard.SOCBoardOps
         state.select[BaseBoard[Resource]].edgesFromVertex.getOrElse(move.vertex, Seq.empty)
       }
-    implicit val buildCityAction = new BuildCityAction[Resource, Inv, BaseVertexBuilding](ResourceSet(ORE, ORE, ORE, WHEAT, WHEAT))
-    implicit val buildRoadAction = new BuildRoadAction[Resource, Inv, BaseEdgeBuilding](ResourceSet(WOOD, BRICK))
+    implicit val buildCityAction = BuildCityAction[Resource, Inv, BaseVertexBuilding](ResourceSet(ORE, ORE, ORE, WHEAT, WHEAT))
+    implicit val buildRoadAction = BuildRoadAction[Resource, Inv, BaseEdgeBuilding](ResourceSet(WOOD, BRICK))
       .expose(longestRoadExtension)(move => Seq(move.edge))
-    implicit val endTurnAction = EndTurnAction
-    implicit val portTradeAction = new PortTradeAction[Resource, Inv]
-    implicit val discardAction = new DiscardAction[Resource, Inv]
-    implicit val initialPlacementAction = new InitialPlacementAction[Resource, Inv, BaseVertexBuilding, BaseEdgeBuilding, BaseBoard[Resource]]
+    implicit val endTurnAction = EndTurnAction.action
+    implicit val portTradeAction = PortTradeAction[Resource, Inv]()
+    implicit val discardAction = DiscardAction[Resource, Inv]()
+    implicit val initialPlacementAction = InitialPlacementAction[Resource, Inv, BaseVertexBuilding, BaseEdgeBuilding, BaseBoard[Resource]]()
       .expose(longestRoadExtension)(move => Seq(move.edge))
-    implicit val rollDiceAction = new RollDiceAction[Resource, BaseVertexBuilding, BaseBoard[Resource], Inv]
-    implicit val tradeAction = new TradeAction[Resource, Inv]
+    implicit val rollDiceAction = RollDiceAction[Resource, BaseVertexBuilding, BaseBoard[Resource], Inv]()
+    implicit val tradeAction = TradeAction[Resource, Inv]()
 
     implicit val playMonopolyAction = new PlayMonopolyAction[Resource, PublicInventories]().playDevelopmentCard[DInv](MONOPOLY)
     implicit val playRoadBuilderAction = new PlayRoadBuilderAction[BaseEdgeBuilding]().playDevelopmentCard[DInv](ROAD_BUILDER)

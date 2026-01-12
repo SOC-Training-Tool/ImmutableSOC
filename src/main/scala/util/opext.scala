@@ -1,9 +1,67 @@
 package util
 
-import shapeless.Coproduct
 import shapeless.ops.coproduct
+import shapeless.{:+:, CNil, Coproduct}
 
 object opext {
+
+  trait CoproductAdd[C <: Coproduct, T] {
+    type Out <: Coproduct
+
+    def applyLeft(c: C): Out
+    def applyRight(t: T): Out
+  }
+
+  trait LowPriorityCoproductAdd {
+    type Aux[C <: Coproduct, T, Out0 <: Coproduct] = CoproductAdd[C, T] { type Out = Out0}
+
+    def apply[C <: Coproduct, T](implicit add: CoproductAdd[C, T]): Aux[C, T, add.Out] = add
+
+    implicit def lowPriorityAdd[C <: Coproduct, T](implicit basis: coproduct.Basis[T :+: C, C]): Aux[C, T, T :+: C] = new CoproductAdd[C, T] {
+      override type Out = T :+: C
+
+      override def applyLeft(c: C): Out = c.embed[T :+: C]
+      override def applyRight(t: T): Out = Coproduct[Out](t)
+    }
+  }
+
+  object CoproductAdd extends LowPriorityCoproductAdd {
+
+    implicit def add[C <: Coproduct, T](implicit inject: coproduct.Inject[C, T]): Aux[C, T, C] = new CoproductAdd[C, T] {
+      override type Out = C
+
+      override def applyLeft(c: C): Out = c
+      override def applyRight(t: T): Out = inject.apply(t)
+    }
+  }
+
+  trait CoproductUnion[C1 <: Coproduct, C2 <: Coproduct] {
+    type Out <: Coproduct
+
+    def applyLeft(c: C1): Out
+    def applyRight(c: C2): Out
+  }
+
+  object CoproductUnion {
+    type Aux[C1 <: Coproduct, C2 <: Coproduct, Out0 <: Coproduct] = CoproductUnion[C1, C2] { type Out = Out0 }
+
+    def apply[C1 <: Coproduct, C2 <: Coproduct](implicit un: CoproductUnion[C1, C2]): Aux[C1, C2, un.Out] = un
+
+    implicit def recur[C <: Coproduct, H, T <: Coproduct, Out0 <: Coproduct](implicit add: CoproductAdd.Aux[C, H, Out0], next: CoproductUnion[Out0, T]): Aux[C, H :+: T, next.Out] = new CoproductUnion[C, H :+: T]  {
+      type Out = next.Out
+
+      override def applyLeft(c: C): next.Out = next.applyLeft(add.applyLeft(c))
+      override def applyRight(c: H :+: T): next.Out = c.eliminate(h => next.applyLeft(add.applyRight(h)), next.applyRight)
+    }
+
+    implicit def cnil[C <: Coproduct]: Aux[C, CNil, C] = new CoproductUnion[C, CNil] {
+      override type Out = C
+
+      override def applyLeft(c: C): Out = c
+      override def applyRight(c: CNil): Out = c.embed[C]
+    }
+  }
+
 
   trait Embedder[Super <: Coproduct, Sub <: Coproduct] {
 
