@@ -11,7 +11,7 @@ import soc.core._
 
 object InitialPlacementAction {
 
-  def apply[II, Inv[_] <: GameState[Inv[II]], BOARD, EB <: Coproduct, VB <: Coproduct]()(
+  def apply[II, Inv[_], BOARD, EB <: Coproduct, VB <: Coproduct]()(
     implicit
     gen: DeltaGen[Inv[II], PerfectInfo[II]],
     vbInject: coproduct.Inject[VB, Settlement.type],

@@ -10,7 +10,7 @@ import soc.core.{BuildCityMove, City, Transactions}
 
 object BuildCityAction {
 
-  def apply[II, Inv[_] <: GameState[Inv[II]], VB <: Coproduct](cost: InventorySet[II, Int])(implicit gen: DeltaGen[Inv[II], PerfectInfo[II]], inject: coproduct.Inject[VB, City.type]) =
+  def apply[II, Inv[_], VB <: Coproduct](cost: InventorySet[II, Int])(implicit gen: DeltaGen[Inv[II], PerfectInfo[II]], inject: coproduct.Inject[VB, City.type]) =
     GameAction.apply[BuildCityMove] { move =>
       DeltaList()
         .add[VertexBuildingState[VB]](BoardBuildingState.RemoveBuilding(move.vertex))

@@ -10,7 +10,7 @@ import soc.core.{BuildRoadMove, Road, Transactions}
 
 object BuildRoadAction {
 
-  def apply[II, Inv[_] <: GameState[Inv[II]], EB <: Coproduct](cost: InventorySet[II, Int])(implicit gen: DeltaGen[Inv[II], PerfectInfo[II]], inject: coproduct.Inject[EB, Road.type]): GameAction[BuildRoadMove, HNil, Delta[EdgeBuildingState[EB]] :+: Delta[Bank[II]] :+: Delta[Inv[II]] :+: CNil] =
+  def apply[II, Inv[_], EB <: Coproduct](cost: InventorySet[II, Int])(implicit gen: DeltaGen[Inv[II], PerfectInfo[II]], inject: coproduct.Inject[EB, Road.type]): GameAction[BuildRoadMove, HNil, Delta[EdgeBuildingState[EB]] :+: Delta[Bank[II]] :+: Delta[Inv[II]] :+: CNil] =
     GameAction.apply[BuildRoadMove] { move =>
       DeltaList()
         .add[Inv[II]](Transactions.Lose(move.player, cost))

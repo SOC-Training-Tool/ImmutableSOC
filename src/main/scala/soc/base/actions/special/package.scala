@@ -1,5 +1,11 @@
 package soc.base.actions
 
+import game.Delta.DeltaGen
+import game.{Delta, DeltaList}
+import shapeless.{:+:, CNil}
+import soc.base.state.SpecialPlayer
+import soc.core.state.PlayerPoints
+
 package object special {
 
   def updatedSpecialPlayer(minCount: Int, currentSpecialPlayer: Option[Int], updatedPlayerCounts: Map[Int, Int]): Option[Int] = {
@@ -15,18 +21,31 @@ package object special {
       }
   }
 
-  def updateState[S](currentSpecialPlayer: Option[Int], updatedSpecialPlayer: Option[Int], state: S)(incrementPoint: (S, Int) => S, decrementPoint: (S, Int) => S, update: (S, Option[Int]) => S) = {
-    val s = (currentSpecialPlayer, updatedSpecialPlayer) match {
-      case (None, None)       => state
+  def specialPlayerDelta[SP](currentSpecialPlayer: Option[Int], updatedSpecialPlayer: Option[Int])(implicit pGen: DeltaGen[SP, SpecialPlayer.Delta]): DeltaList[Delta[PlayerPoints] :+: Delta[SP] :+: CNil] = {
+    (currentSpecialPlayer, updatedSpecialPlayer) match {
+      case (None, None)       =>
+        DeltaList()
+          .add[SP]()
+          .add[PlayerPoints]()
       case (None, Some(p))    =>
-        incrementPoint(incrementPoint(state, p), p)
+        DeltaList()
+          .add[SP](SpecialPlayer.Set(p))
+          .add[PlayerPoints](PlayerPoints.Increment(p), PlayerPoints.Increment(p))
       case (Some(p), None)    =>
-        decrementPoint(decrementPoint(state, p), p)
+        DeltaList()
+          .add[SP](SpecialPlayer.Set(p))
+          .add[PlayerPoints](PlayerPoints.Increment(p), PlayerPoints.Increment(p))
       case (Some(o), Some(n)) if o == n =>
-        state
+        DeltaList()
+          .add[SP]()
+          .add[PlayerPoints]()
       case (Some(o), Some(n)) =>
-        decrementPoint(decrementPoint(incrementPoint(incrementPoint(state, n), n), o), o)
+        DeltaList()
+          .add[SP](SpecialPlayer.Remove)
+          .add[PlayerPoints](PlayerPoints.Decrement(o), PlayerPoints.Decrement(o))
+          .add[SP](SpecialPlayer.Set(n))
+          .add[PlayerPoints](PlayerPoints.Increment(n), PlayerPoints.Increment(n))
     }
-    update(s, updatedSpecialPlayer)
+
   }
 }

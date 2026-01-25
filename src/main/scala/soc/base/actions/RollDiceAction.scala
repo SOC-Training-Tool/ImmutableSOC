@@ -2,17 +2,22 @@ package soc.base.actions
 
 import game.Delta.DeltaGen
 import game.{Delta, DeltaList, GameAction, GameState, InventorySet}
-import shapeless.{:+:, ::, CNil, Coproduct, HNil}
+import shapeless.ops.coproduct
+import shapeless.{:+:, ::, CNil, Coproduct, HNil, Poly1}
 import soc.base.state.RobberLocation
-import soc.base.state.ops._
 import soc.core.SOCBoard.SOCBoardOps
 import soc.core.Transactions.Gain
 import soc.core.state.{Bank, VertexBuildingState}
-import soc.core.{BoardHex, RollDiceMoveResult, SOCBoard}
+import soc.core.{BoardHex, RollDiceMoveResult, SOCBoard, VertexBuildingValue}
 
 object RollDiceAction {
 
-  def apply[II, Inv[_] <: GameState[Inv[II]], BOARD, VB <: Coproduct]()(implicit delta: DeltaGen[Inv[II], Gain[II]], b: SOCBoard[II, BOARD], vertexFolder: ResForVertex[VB]): GameAction[RollDiceMoveResult, BOARD :: RobberLocation :: Bank[II] :: VertexBuildingState[VB] :: HNil, Delta[Inv[II]] :+: Delta[Bank[II]] :+: CNil] = {
+  type ResForVertex[VB <: Coproduct] = coproduct.Folder.Aux[ResourcesForBuildingPoly.type, VB, Int]
+  object ResourcesForBuildingPoly extends Poly1 {
+    implicit def vertexBuilding[A](implicit vbValue: VertexBuildingValue[A]): Case.Aux[A, Int] = at(_ => vbValue.apply)
+  }
+
+  def apply[II, Inv[_], BOARD, VB <: Coproduct]()(implicit delta: DeltaGen[Inv[II], Gain[II]], b: SOCBoard[II, BOARD], vertexFolder: ResForVertex[VB]): GameAction[RollDiceMoveResult, BOARD :: RobberLocation :: Bank[II] :: VertexBuildingState[VB] :: HNil, Delta[Inv[II]] :+: Delta[Bank[II]] :+: CNil] = {
 
     GameAction.fromState[RollDiceMoveResult, BOARD :: RobberLocation :: Bank[II] :: VertexBuildingState[VB] :: HNil] { case (move, state) =>
 

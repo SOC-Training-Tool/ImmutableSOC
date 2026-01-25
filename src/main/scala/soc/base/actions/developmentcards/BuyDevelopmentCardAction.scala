@@ -11,7 +11,7 @@ import soc.core.state.{Bank, Turn}
 
 object BuyDevelopmentCardAction {
 
-  def public[II, Inv[_] <: GameState[Inv[II]], Dev, DevInv[_] <: GameState[DevInv[Dev]]](cost: InventorySet[II, Int])(implicit
+  def public[II, Inv[_], Dev, DevInv[_]](cost: InventorySet[II, Int])(implicit
     invGen: DeltaGen[Inv[II], Transactions.PerfectInfo[II]],
     devGen: DeltaGen[DevInv[Dev], ImperfectInfoBuyCard[Dev]]
   ): GameAction[BuyDevelopmentCardMoveResult[Dev], Turn :: HNil, Delta[DevelopmentCardDeckSize] :+: Delta[DevInv[Dev]] :+: Delta[Bank[II]] :+: Delta[Inv[II]] :+: CNil] =
@@ -25,10 +25,10 @@ object BuyDevelopmentCardAction {
         .toList
     }
 
-  def perfect[II, Inv[_] <: GameState[Inv[II]], Dev, DevInv[_] <: GameState[DevInv[Dev]]](cost: InventorySet[II, Int])(implicit
+  def perfect[II, Inv[_], Dev, DevInv[_]](cost: InventorySet[II, Int])(implicit
     invGen: DeltaGen[Inv[II], Transactions.PerfectInfo[II]],
     devGen: DeltaGen[DevInv[Dev], PerfectInfoBuyCard[Dev]]
-  ): GameAction[PerfectInfoBuyDevelopmentCardMoveResult[Dev], Turn :: HNil, Delta[DevelopmentCardDeckSize] :+: Delta[DevInv[Dev]] :+: Delta[Bank[II]] :+: Delta[Inv[II]] :+: CNil] =
+  ): GameAction[PerfectInfoBuyDevelopmentCardMoveResult[Dev], Turn :: HNil, Delta[DevelopmentCardDeck[Dev]] :+: Delta[DevInv[Dev]] :+: Delta[Bank[II]] :+: Delta[Inv[II]] :+: CNil] =
     GameAction.fromState[PerfectInfoBuyDevelopmentCardMoveResult[Dev], Turn :: HNil] { case (move, state) =>
       val turn = state.select[Turn].t
       DeltaList()
@@ -37,7 +37,7 @@ object BuyDevelopmentCardAction {
         // TODO: error handling to ensure that the Deck is not empty and
         //  that the move result is the same card as the top of the deck
         .add[DevInv[Dev]](PerfectInfoBuyCard(move.card, move.player, turn))
-        .add[DevelopmentCardDeckSize](DevelopmentCardDeck.Remove)
+        .add[DevelopmentCardDeck[Dev]](DevelopmentCardDeck.Remove)
         .toList
     }
 

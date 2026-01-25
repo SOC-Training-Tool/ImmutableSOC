@@ -1,6 +1,7 @@
 package game
 
 import game.Delta.DeltaGen._
+import game.ImmutableGame.Aux
 import org.scalatest.{FunSpec, Matchers}
 import shapeless.{:+:, ::, CNil, HNil}
 
@@ -22,28 +23,32 @@ class ImmutableGameSpec extends FunSpec with Matchers {
     override def apply(delta: :+:[String, Long :+: Int :+: CNil]): Bar = Bar(s + delta.select[String].getOrElse(""))
   }
 
-  implicit val m1Action: GameAction[M1, Bar :: HNil, Delta[Foo] :+: CNil]                = GameAction[M1, Bar :: HNil] { case (m1, state) =>
-    DeltaList().add[Foo](state.select[Bar].s + m1.i.toString).apply()
+  implicit val m1Action: GameAction[M1, Bar :: HNil, Delta[Foo] :+: CNil]                = GameAction.fromState[M1, Bar :: HNil] { case (m1, state) =>
+    DeltaList().add[Foo](state.select[Bar].s + m1.i.toString).toList
   }
-  implicit val m2Action: GameAction[M2, Foo :: HNil, Delta[Foo] :+: Delta[Bar] :+: CNil] = GameAction[M2, Foo :: HNil] { case (_, state) =>
+  implicit val m2Action: GameAction[M2, Foo :: HNil, Delta[Foo] :+: Delta[Bar] :+: CNil] = GameAction.fromState[M2, Foo :: HNil] { case (_, state) =>
     val foo = state.select[Foo]
     DeltaList()
       .add[Bar]()
       .add[Foo](foo.i.toDouble)
       .add[Bar](foo.i)
-      .apply()
+      .toList
   }
 
-  val game: ImmutableGame.Aux[M1 :+: M2 :+: CNil, Foo :: Bar :: HNil, Delta[Foo] :+: Delta[Bar] :+: CNil] = ImmutableGame.apply[M1 :+: M2 :+: CNil]()
+  val game: Aux[M1 :+: M2 :+: CNil, Bar :: Foo :: HNil, Delta[Bar] :+: Delta[Foo] :+: CNil] = ImmutableGame.apply[M1 :+: M2 :+: CNil]()
 
   describe("Immutable Game") {
 
     it("should update the state on action") {
-      val move = M1(1)
+      val move      = M1(1)
       val initState = Foo(0) :: Bar("0") :: HNil
 
-      val result = game.apply(move, initState)
-      result._2.select[Foo] shouldBe Foo(1)
+      val result: (List[Delta[Bar] :+: Delta[Foo] :+: CNil], Foo :: Bar :: HNil) = game.apply(move, initState)
+      val state                                                                  = result._2
+      val delta                                                                  = result._1.head.select[Delta[Foo]].flatMap(_.getValue.select[String])
+
+      state.select[Foo] shouldBe Foo(1)
+      delta.isDefined shouldBe true
     }
 
   }

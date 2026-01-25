@@ -9,7 +9,7 @@ import soc.core.state.{BoardBuildingState, EdgeBuildingState}
 
 object PlayRoadBuilderAction {
 
-  def apply[EB <: Coproduct](implicit inject: coproduct.Inject[EB, Road.type]): GameAction[PlayRoadBuilderMove, HNil, Delta[EdgeBuildingState[EB]] :+: CNil] =
+  def apply[EB <: Coproduct]()(implicit inject: coproduct.Inject[EB, Road.type]): GameAction[PlayRoadBuilderMove, HNil, Delta[EdgeBuildingState[EB]] :+: CNil] =
     GameAction.apply[PlayRoadBuilderMove] { move =>
       val roads = List(Some(move.edge1), move.edge2).flatten
       DeltaList()

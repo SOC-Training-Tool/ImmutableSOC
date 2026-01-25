@@ -46,7 +46,7 @@ object ResourceInventories {
   case class ProbableInventories[II](m: List[(Int, Map[Int, InventorySet[II, Int]])]) extends GameState[ProbableInventories[II]] {
     type Delta = Transactions.ImperfectInfo[II]
 
-    override def apply(delta: ImperfectInfo[II]): ProbableInventories[II] = super.apply(delta)
+    override def apply(delta: ImperfectInfo[II]): ProbableInventories[II] = this
   }
 
   val deltaGen = DeltaGen[PublicInventories[Resources], Transactions.PerfectInfo[Resources]]

@@ -9,12 +9,12 @@ private[soc] class LongestRoadOps[Res, BOARD, VB <: Coproduct, EB <: Coproduct](
     socBoard: SOCBoard[Res, BOARD]
 ) {
 
-  private val playerIds = edgeBuildingMap.toSeq.map(_._2.player).distinct
+  private val playerIds = edgeBuildingMap.map.toSeq.map(_._2.player).distinct
 
   def calcLongestRoadLengths(): SOCRoadLengths = SOCRoadLengths(playerIds.foldLeft(Map.empty[Int, Int]) { case (m, p) => m + (p -> calcLongestRoadLength(p)) })
 
   def calcLongestRoadLength(playerId: Int): Int = {
-    val edges = edgeBuildingMap.toSeq.flatMap {
+    val edges = edgeBuildingMap.map.toSeq.flatMap {
       case (edge, building) if building.player == playerId => Seq(edge)
       case _                                               => Nil
     }
@@ -33,11 +33,11 @@ private[soc] class LongestRoadOps[Res, BOARD, VB <: Coproduct, EB <: Coproduct](
         return Math.max(visited.length, calcLongestRoadLengthRecur(playerId, stack.tail, visited))
       }
 
-      def fromVertex(vertex: Vertex): List[Vertex] = if (vertexBuildingMap.get(vertex).fold(true)(_.player == playerId)) {
+      def fromVertex(vertex: Vertex): List[Vertex] = if (vertexBuildingMap.map.get(vertex).fold(true)(_.player == playerId)) {
         board
           .neighboringVertices(vertex)
           .filterNot(v => visited.contains(Edge(vertex, v)))
-          .filter(v => edgeBuildingMap.get(Edge(vertex, v)).fold(false)(_.player == playerId))
+          .filter(v => edgeBuildingMap.map.get(Edge(vertex, v)).fold(false)(_.player == playerId))
           .toList
       } else Nil
 

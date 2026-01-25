@@ -8,7 +8,7 @@ import soc.core.Transactions.{Gain, Lose, PerfectInfo}
 
 object TradeAction {
 
-  def apply[II, INV[_] <: GameState[INV[II]]]()(implicit gen: DeltaGen[INV[II], PerfectInfo[II]]): GameAction[TradeMove[II], HNil, Delta[INV[II]] :+: CNil] =
+  def apply[II, INV[_]]()(implicit gen: DeltaGen[INV[II], PerfectInfo[II]]): GameAction[TradeMove[II], HNil, Delta[INV[II]] :+: CNil] =
     GameAction.apply[TradeMove[II]] { move =>
       DeltaList()
       .add[INV[II]](Lose(move.player, move.give))

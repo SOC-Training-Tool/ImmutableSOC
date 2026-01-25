@@ -9,7 +9,7 @@ import soc.core.{DiscardMove, Transactions}
 
 object DiscardAction {
 
-  def apply[II, INV[_] <: GameState[INV[II]]]()(implicit deltaGen: DeltaGen[INV[II], PerfectInfo[II]]): GameAction[DiscardMove[II], HNil, Delta[INV[II]] :+: Delta[Bank[II]] :+: CNil] =
+  def apply[II, INV[_]]()(implicit deltaGen: DeltaGen[INV[II], PerfectInfo[II]]): GameAction[DiscardMove[II], HNil, Delta[INV[II]] :+: Delta[Bank[II]] :+: CNil] =
     GameAction.apply[DiscardMove[II]] { move =>
       DeltaList()
         .add[Bank[II]](Bank.Add(move.set))

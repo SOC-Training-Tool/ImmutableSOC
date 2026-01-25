@@ -9,7 +9,7 @@ import soc.core.{BuildSettlementMove, Settlement, Transactions, Vertex}
 
 object BuildSettlementAction {
 
-  def apply[II, Inv[_] <: GameState[Inv[II]], VB <: Coproduct](cost: InventorySet[II, Int])(implicit gen: DeltaGen[Inv[II], Transactions.PerfectInfo[II]], inject: coproduct.Inject[VB, Settlement.type]): GameAction[BuildSettlementMove, HNil, Delta[PlayerPoints] :+: Delta[Bank[II]] :+: Delta[Inv[II]] :+: Delta[VertexBuildingState[VB]] :+: CNil] =
+  def apply[II, Inv[_], VB <: Coproduct](cost: InventorySet[II, Int])(implicit gen: DeltaGen[Inv[II], Transactions.PerfectInfo[II]], inject: coproduct.Inject[VB, Settlement.type]): GameAction[BuildSettlementMove, HNil, Delta[PlayerPoints] :+: Delta[Bank[II]] :+: Delta[Inv[II]] :+: Delta[VertexBuildingState[VB]] :+: CNil] =
     GameAction.apply[BuildSettlementMove] { move =>
       DeltaList()
         .add[VertexBuildingState[VB]](BoardBuildingState.add(move.vertex, Settlement, move.player))

@@ -9,7 +9,7 @@ import soc.core.Transactions
 
 object MoveRobberAndStealAction {
 
-  def public[II, Inv[_] <: GameState[Inv[II]]](implicit delta: DeltaGen[Inv[II], Transactions.ImperfectInfoExchange[II]]): GameAction[RobberMoveResult[II], HNil, Delta[Inv[II]] :+: Delta[RobberLocation] :+: CNil] =
+  def public[II, Inv[_]](implicit delta: DeltaGen[Inv[II], Transactions.ImperfectInfoExchange[II]]): GameAction[RobberMoveResult[II], HNil, Delta[Inv[II]] :+: Delta[RobberLocation] :+: CNil] =
     GameAction.apply[RobberMoveResult[II]] { move =>
       val steal = move.steal.map(s => Transactions.ImperfectInfoExchange[II](s.victim, move.player, s.resource))
       DeltaList()
@@ -18,7 +18,7 @@ object MoveRobberAndStealAction {
         .toList
     }
 
-  def perfect[II, Inv[_] <: GameState[Inv[II]]](implicit delta: DeltaGen[Inv[II], Transactions.PerfectInfo[II]]): GameAction[PerfectInfoRobberMoveResult[II], HNil, Delta[Inv[II]] :+: Delta[RobberLocation] :+: CNil] =
+  def perfect[II, Inv[_]](implicit delta: DeltaGen[Inv[II], Transactions.PerfectInfo[II]]): GameAction[PerfectInfoRobberMoveResult[II], HNil, Delta[Inv[II]] :+: Delta[RobberLocation] :+: CNil] =
     GameAction.apply[PerfectInfoRobberMoveResult[II]] { move =>
       val (gain, lose) = move.steal.map { s =>
         val inv = InventorySet.fromList(Seq(s.resource))

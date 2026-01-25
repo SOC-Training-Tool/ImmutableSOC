@@ -1,33 +1,24 @@
 package soc.base.actions.developmentcards
 
 import game.Delta.DeltaGen
-import game.{GameAction, GameState, InventorySet}
-import shapeless.ops.coproduct
-import shapeless.{::, Coproduct, HNil}
-import soc.base
-import soc.base.{DevelopmentCards, PlayMonopolyMoveResult}
-import soc.core.ResourceInventories.ResourceInventoriesOp
+import game.{Delta, DeltaList, GameAction, InventorySet}
+import shapeless.{:+:, CNil, HNil}
+import soc.base.PlayMonopolyMoveResult
+import soc.core.Transactions
 import soc.core.Transactions.{Gain, Lose}
-import soc.core.{DevelopmentCardInventories, ResourceInventories, Transactions}
-import util.DependsOn
 
 object PlayMonopolyAction {
 
-  def apply[II, Inv[_] <: GameState[Inv[II]]](implicit gen: DeltaGen[Inv[II], Transactions.PerfectInfo[II]]) =
-    GameAction.fromState[PlayMonopolyMoveResult[II], Inv[II] :: HNil]
-
-}
-
-
-class PlayMonopolyAction[Res, ResInv[_]](implicit res: ResourceInventories[Res, Transactions.PerfectInfo[Res], ResInv]) extends GameAction[PlayMonopolyMoveResult[Res], ResInv[Res] :: HNil] {
-
-  override def apply(move: PlayMonopolyMoveResult[Res], state: STATE): STATE = {
-    implicit val dep = DependsOn.single[ResInv[Res] :: HNil]
-    val lose         = move.cardsLost.map { case (p, cards) =>
-      val set = InventorySet.fromMap(Map(move.res -> cards))
-      Coproduct[Transactions.PerfectInfo[Res]](Lose(p, set))
-    }.toList
-    val totalLost    = InventorySet.fromMap(Map(move.res -> move.cardsLost.values.sum))
-    dep.updateWith[ResInv[Res]](state)(_.update(lose :+ Coproduct[Transactions.PerfectInfo[Res]](Gain(move.player, totalLost))))
-  }
+  def apply[II, Inv[_]]()(implicit gen: DeltaGen[Inv[II], Transactions.PerfectInfo[II]]): GameAction[PlayMonopolyMoveResult[II], HNil, Delta[Inv[II]] :+: CNil] =
+    GameAction.apply[PlayMonopolyMoveResult[II]] { move =>
+      val lose         = move.cardsLost.map { case (p, cards) =>
+        val set = InventorySet.fromMap(Map(move.res -> cards))
+        Lose(p, set)
+      }.toList
+      val totalLost    = InventorySet.fromMap(Map(move.res -> move.cardsLost.values.sum))
+      DeltaList()
+        .add[Inv[II]](lose:_*)
+        .add[Inv[II]](Gain(move.player, totalLost))
+        .toList
+    }
 }

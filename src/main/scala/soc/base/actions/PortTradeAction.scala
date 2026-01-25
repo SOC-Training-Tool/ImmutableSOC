@@ -9,7 +9,7 @@ import soc.core.state.Bank
 
 object PortTradeAction {
 
-  def apply[II, Inv[_] <: GameState[Inv[II]]]()(implicit gen: DeltaGen[Inv[II], Transactions.PerfectInfo[II]]): GameAction[PortTradeMove[II], HNil, Delta[Bank[II]] :+: Delta[Inv[II]] :+: CNil] =
+  def apply[II, Inv[_]]()(implicit gen: DeltaGen[Inv[II], Transactions.PerfectInfo[II]]): GameAction[PortTradeMove[II], HNil, Delta[Bank[II]] :+: Delta[Inv[II]] :+: CNil] =
     GameAction.apply[PortTradeMove[II]] { move =>
       DeltaList()
         .add[Inv[II]](Transactions.Lose(move.player, move.give))

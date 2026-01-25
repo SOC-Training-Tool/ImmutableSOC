@@ -84,9 +84,9 @@ package object state {
   }
 
   case class LargestArmyPlayer(player: Option[Int]) extends GameState[LargestArmyPlayer] {
-    type Delta = SpecialPlayer.Set
+    type Delta = SpecialPlayer.Delta
 
-    override def apply(delta: SpecialPlayer.Set): LargestArmyPlayer = LargestArmyPlayer(Some(delta.player))
+    override def apply(delta: Delta): LargestArmyPlayer = LargestArmyPlayer(delta.fold(SpecialPlayer.ApplyDelta))
   }
 
   object LargestArmyPlayer {
