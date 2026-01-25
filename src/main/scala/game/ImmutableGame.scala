@@ -182,6 +182,8 @@ object ImmutableGame {
 
     type Aux[C <: Coproduct, Out0 <: HList] = FetchActions[C] {type Out = Out0}
 
+    def apply[C <: Coproduct](implicit f: FetchActions[C]): Aux[C, f.Out] = f
+
     implicit def recur[H, T <: Coproduct, S, D](implicit ga: GameAction[H, S, D], next: FetchActions[T]): Aux[H :+: T, GameAction[H, S, D] :: next.Out] =
       new FetchActions[H :+: T] {
         override type Out = GameAction[H, S, D] :: next.Out
