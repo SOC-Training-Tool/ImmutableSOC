@@ -9,7 +9,7 @@ import soc.core.Transactions
 
 object MoveRobberAndStealAction {
 
-  def public[II, Inv[_]](implicit delta: DeltaGen[Inv[II], Transactions.ImperfectInfoExchange[II]]): GameAction[RobberMoveResult[II], HNil, Delta[Inv[II]] :+: Delta[RobberLocation] :+: CNil] =
+  def public[II, Inv[_]](implicit delta: DeltaGen[Inv[II], Transactions.ImperfectInfo[II]]): GameAction[RobberMoveResult[II], HNil, Delta[Inv[II]] :+: Delta[RobberLocation] :+: CNil] =
     GameAction.apply[RobberMoveResult[II]] { move =>
       val steal = move.steal.map(s => Transactions.ImperfectInfoExchange[II](s.victim, move.player, s.resource))
       DeltaList()

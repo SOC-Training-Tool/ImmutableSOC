@@ -1,8 +1,10 @@
 package soc.base
 
 import game.Delta.DeltaGen
-import game.ImmutableGame.ExtractAction.Aux
-import game.{Delta, DeltaList, GameAction, GameState, ImmutableGame}
+import game.ImmutableGame.AddGlobalActionPoly
+import game.utils.ExtractState.Aux
+import game.utils.{ExtractState, FetchActions}
+import game.{Delta, FullState, GameAction, ImmutableGame, ImmutableGameBuilder}
 import shapeless.{:+:, ::, CNil, HNil}
 import soc.base.DevelopmentCards._
 import soc.base.actions._
@@ -12,15 +14,13 @@ import soc.base.actions.developmentcards._
 import soc.base.actions.special.{LargestArmyExtension, LongestRoadExtension}
 import soc.base.state._
 import soc.core.DevTransactions.PlayCard
-import soc.core._
-import soc.core.state._
-import soc.core.DevelopmentCardInventories._
 import soc.core.ResourceInventories._
 import soc.core.Resources._
-import soc.core.Transactions.PerfectInfo
+import soc.core.Transactions.{ImperfectInfo, PerfectInfo}
 import soc.core.VertexBuilding.{cityValue, settlementValue}
+import soc.core._
 import soc.core.actions.{DiscardAction, EndTurnAction, MoveCountExtension, TradeAction}
-import soc.core.state.{EdgeBuildingState, VertexBuildingState}
+import soc.core.state._
 
 object BaseGame {
 
@@ -29,7 +29,10 @@ object BaseGame {
 
   val longestRoadExtension = LongestRoadExtension[Resource, BaseVertexBuilding, BaseEdgeBuilding, BaseBoard[Resource]]()
 
-  class CoreImplicits[Inv[_], DInv[_]](implicit rDG: DeltaGen[Inv[Resource], PerfectInfo[Resource]], devDG: DeltaGen[DInv[DevelopmentCard], PlayCard[DevelopmentCard]]) {
+  trait CoreImplicits[Inv[_], DInv[_]] {
+
+    implicit val rDG  : DeltaGen[Inv[Resource], PerfectInfo[Resource]]
+    implicit val devDG: DeltaGen[DInv[DevelopmentCard], PlayCard[DevelopmentCard]]
 
     implicit val buildSettlementAction : GameAction[BuildSettlementMove, SOCRoadLengths :: SOCLongestRoadPlayer :: BaseBoard[Resource] :: VertexBuildingState[BaseVertexBuilding] :: EdgeBuildingState[BaseEdgeBuilding] :: HNil, Delta[SOCRoadLengths] :+: Delta[SOCLongestRoadPlayer] :+: Delta[PlayerPoints] :+: Delta[Bank[Resource]] :+: Delta[Inv[Resource]] :+: Delta[VertexBuildingState[BaseVertexBuilding]] :+: CNil]                                                                              = BuildSettlementAction[Resource, Inv, BaseVertexBuilding](ResourceSet(WOOD, BRICK, WHEAT, SHEEP))
       .andThen(longestRoadExtension.composeS { (move: BuildSettlementMove, state: BaseBoard[Resource] :: HNil) =>
@@ -53,14 +56,14 @@ object BaseGame {
       .andThen(longestRoadExtension.compose(move => Seq(Some(move.edge1), move.edge2).flatten))
     implicit val playYearOfPlentyAction: GameAction[PlayYearOfPlentyMove[Resource], Turn :: HNil, Delta[Bank[Resource]] :+: Delta[Inv[Resource]] :+: Delta[DInv[DevelopmentCard]] :+: CNil]                                                                                                                                                                                                                       = PlayYearOfPlentyAction[Resource, Inv]().playDevelopmentCard[DevelopmentCard, DInv](YearOfPlenty)
 
-    type MOVES = BuildSettlementMove :+: BuildCityMove :+: BuildRoadMove :+: EndTurnMove :+: PortTradeMove[Resource] :+: DiscardMove[Resource] :+: InitialPlacementMove :+: RollDiceMoveResult :+: TradeMove[Resource] :+: PlayMonopolyMoveResult[Resource] :+: PlayRoadBuilderMove :+: PlayYearOfPlentyMove[Resource] :+: CNil
+    type CORE_MOVES = BuildSettlementMove :+: BuildCityMove :+: BuildRoadMove :+: EndTurnMove :+: PortTradeMove[Resource] :+: DiscardMove[Resource] :+: InitialPlacementMove :+: RollDiceMoveResult :+: TradeMove[Resource] :+: PlayMonopolyMoveResult[Resource] :+: PlayRoadBuilderMove :+: PlayYearOfPlentyMove[Resource] :+: CNil
   }
 
 
-  object PerfectInfoGame {
-    val core = new CoreImplicits[PrivateInventories, PrivateDevCardInv]
+  object PerfectInfoGame extends CoreImplicits[PrivateInventories, PrivateDevCardInv] {
 
-    import core._
+    override implicit val rDG  : DeltaGen[PrivateInventories[Resource], PerfectInfo[Resource]]           = implicitly[DeltaGen[PrivateInventories[Resource], PerfectInfo[Resource]]]
+    override implicit val devDG: DeltaGen[PrivateDevCardInv[DevelopmentCard], PlayCard[DevelopmentCard]] = implicitly[DeltaGen[PrivateDevCardInv[DevelopmentCard], PlayCard[DevelopmentCard]]]
 
     implicit val moveRobberAndStealAction: GameAction[PerfectInfoRobberMoveResult[Resource], HNil, Delta[PrivateInventories[Resource]] :+: Delta[RobberLocation] :+: CNil]                                                                                                                                                  = MoveRobberAndStealAction.perfect[Resource, PrivateInventories]
     implicit val buyDevelopmentCardAction: GameAction[PerfectInfoBuyDevelopmentCardMoveResult[DevelopmentCard], Turn :: HNil, Delta[PlayerPoints] :+: Delta[DevelopmentCardDeck[DevelopmentCard]] :+: Delta[PrivateDevCardInv[DevelopmentCard]] :+: Delta[Bank[Resource]] :+: Delta[PrivateInventories[Resource]] :+: CNil] = BuyDevelopmentCardAction.perfect[Resource, PrivateInventories, DevelopmentCard, PrivateDevCardInv](ResourceSet(ORE, WHEAT, SHEEP))
@@ -70,26 +73,35 @@ object BaseGame {
       .playDevelopmentCard[DevelopmentCard, PrivateDevCardInv](Knight)
       .andThen(LargestArmyExtension(3).compose(_.move.player))
 
-    type MOVES = PerfectInfoRobberMoveResult[Resource] :+: PerfectInfoBuyDevelopmentCardMoveResult[DevelopmentCard] :+: PerfectInfoPlayKnightResult[Resource] :+: core.MOVES
+    type MOVES = PerfectInfoRobberMoveResult[Resource] :+: PerfectInfoBuyDevelopmentCardMoveResult[DevelopmentCard] :+: PerfectInfoPlayKnightResult[Resource] :+: super.CORE_MOVES
     type STATE = RobberLocation :: PrivateInventories[Resource] :: PrivateDevCardInv[DevelopmentCard] :: DevelopmentCardDeck[DevelopmentCard] :: Bank[Resource] :: Turn :: PlayerPoints :: LargestArmyPlayer :: PlayerArmyCount :: VertexBuildingState[BaseVertexBuilding] :: SOCRoadLengths :: SOCLongestRoadPlayer :: BaseBoard[Resource] :: EdgeBuildingState[BaseEdgeBuilding] :: MoveCount :: PublicInventories[Resource] :: HNil
 
+   // val actions: GameAction[BuildSettlementMove, SOCRoadLengths :: SOCLongestRoadPlayer :: BaseBoard[Resource] :: VertexBuildingState[BaseVertexBuilding] :: EdgeBuildingState[BaseEdgeBuilding] :: HNil, Delta[SOCRoadLengths] :+: Delta[SOCLongestRoadPlayer] :+: Delta[PlayerPoints] :+: Delta[Bank[Resource]] :+: Delta[PrivateInventories[Resource]] :+: Delta[VertexBuildingState[BaseVertexBuilding]] :+: CNil] :: GameAction[BuildCityMove, HNil, Delta[PlayerPoints] :+: Delta[Bank[Resource]] :+: Delta[PrivateInventories[Resource]] :+: Delta[VertexBuildingState[BaseVertexBuilding]] :+: CNil] :: GameAction[BuildRoadMove, SOCRoadLengths :: SOCLongestRoadPlayer :: BaseBoard[Resource] :: VertexBuildingState[BaseVertexBuilding] :: EdgeBuildingState[BaseEdgeBuilding] :: HNil, Delta[SOCRoadLengths] :+: Delta[PlayerPoints] :+: Delta[SOCLongestRoadPlayer] :+: Delta[EdgeBuildingState[BaseEdgeBuilding]] :+: Delta[Bank[Resource]] :+: Delta[PrivateInventories[Resource]] :+: CNil] :: HNil = FetchActions[BuildSettlementMove :+: BuildCityMove :+: BuildRoadMove :+: CNil].instances
+   // val es     : Aux[GameAction[BuildSettlementMove, SOCRoadLengths :: SOCLongestRoadPlayer :: BaseBoard[Resource] :: VertexBuildingState[BaseVertexBuilding] :: EdgeBuildingState[BaseEdgeBuilding] :: HNil, Delta[SOCRoadLengths] :+: Delta[SOCLongestRoadPlayer] :+: Delta[PlayerPoints] :+: Delta[Bank[Resource]] :+: Delta[PrivateInventories[Resource]] :+: Delta[VertexBuildingState[BaseVertexBuilding]] :+: CNil] :: GameAction[BuildCityMove, HNil, Delta[PlayerPoints] :+: Delta[Bank[Resource]] :+: Delta[PrivateInventories[Resource]] :+: Delta[VertexBuildingState[BaseVertexBuilding]] :+: CNil] :: GameAction[BuildRoadMove, SOCRoadLengths :: SOCLongestRoadPlayer :: BaseBoard[Resource] :: VertexBuildingState[BaseVertexBuilding] :: EdgeBuildingState[BaseEdgeBuilding] :: HNil, Delta[SOCRoadLengths] :+: Delta[PlayerPoints] :+: Delta[SOCLongestRoadPlayer] :+: Delta[EdgeBuildingState[BaseEdgeBuilding]] :+: Delta[Bank[Resource]] :+: Delta[PrivateInventories[Resource]] :+: CNil] :: HNil, SOCRoadLengths :: SOCLongestRoadPlayer :: BaseBoard[Resource] :: VertexBuildingState[BaseVertexBuilding] :: EdgeBuildingState[BaseEdgeBuilding] :: PlayerPoints :: Bank[Resource] :: PrivateInventories[Resource] :: HNil] =
+   //   ExtractState[GameAction[BuildSettlementMove, SOCRoadLengths :: SOCLongestRoadPlayer :: BaseBoard[Resource] :: VertexBuildingState[BaseVertexBuilding] :: EdgeBuildingState[BaseEdgeBuilding] :: HNil, Delta[SOCRoadLengths] :+: Delta[SOCLongestRoadPlayer] :+: Delta[PlayerPoints] :+: Delta[Bank[Resource]] :+: Delta[PrivateInventories[Resource]] :+: Delta[VertexBuildingState[BaseVertexBuilding]] :+: CNil] :: GameAction[BuildCityMove, HNil, Delta[PlayerPoints] :+: Delta[Bank[Resource]] :+: Delta[PrivateInventories[Resource]] :+: Delta[VertexBuildingState[BaseVertexBuilding]] :+: CNil] :: GameAction[BuildRoadMove, SOCRoadLengths :: SOCLongestRoadPlayer :: BaseBoard[Resource] :: VertexBuildingState[BaseVertexBuilding] :: EdgeBuildingState[BaseEdgeBuilding] :: HNil, Delta[SOCRoadLengths] :+: Delta[PlayerPoints] :+: Delta[SOCLongestRoadPlayer] :+: Delta[EdgeBuildingState[BaseEdgeBuilding]] :+: Delta[Bank[Resource]] :+: Delta[PrivateInventories[Resource]] :+: CNil] :: HNil]
+
+    //val result: GameAction[BuildSettlementMove, SOCRoadLengths :: SOCLongestRoadPlayer :: BaseBoard[Resource] :: VertexBuildingState[BaseVertexBuilding] :: EdgeBuildingState[BaseEdgeBuilding] :: HNil, Delta[MoveCount] :+: Delta[SOCRoadLengths] :+: Delta[SOCLongestRoadPlayer] :+: Delta[PlayerPoints] :+: Delta[Bank[Resource]] :+: Delta[PrivateInventories[Resource]] :+: Delta[VertexBuildingState[BaseVertexBuilding]] :+: CNil] :: GameAction[BuildCityMove, HNil, Delta[MoveCount] :+: Delta[PlayerPoints] :+: Delta[Bank[Resource]] :+: Delta[PrivateInventories[Resource]] :+: Delta[VertexBuildingState[BaseVertexBuilding]] :+: CNil] :: GameAction[BuildRoadMove, SOCRoadLengths :: SOCLongestRoadPlayer :: BaseBoard[Resource] :: VertexBuildingState[BaseVertexBuilding] :: EdgeBuildingState[BaseEdgeBuilding] :: HNil, Delta[MoveCount] :+: Delta[SOCRoadLengths] :+: Delta[PlayerPoints] :+: Delta[SOCLongestRoadPlayer] :+: Delta[EdgeBuildingState[BaseEdgeBuilding]] :+: Delta[Bank[Resource]] :+: Delta[PrivateInventories[Resource]] :+: CNil] :: HNil = (buildSettlementAction :: buildCityAction :: buildRoadAction :: HNil).zipConst(MoveCountExtension()).map(AddGlobalActionPoly)
+
     val builder = ImmutableGame.apply[MOVES]().addGlobalAction(MoveCountExtension())
-    //val game = builder.build().align[MOVES, STATE]()
+    //val builder = ImmutableGame.apply[BuildSettlementMove :+: BuildCityMove :+: BuildRoadMove :+: CNil]().addGlobalAction(MoveCountExtension())
+    val game = builder.build()
+
   }
 
-  object PublicInfoGame {
-    val core = new CoreImplicits[PublicInventories, PublicDevCardInv]
+  object PublicInfoGame extends CoreImplicits[PublicInventories, PublicDevCardInv] {
 
-    import core._
+    override implicit val rDG  : DeltaGen[PublicInventories[Resource], PerfectInfo[Resource]]           = implicitly[DeltaGen[PublicInventories[Resource], PerfectInfo[Resource]]]
+    override implicit val devDG: DeltaGen[PublicDevCardInv[DevelopmentCard], PlayCard[DevelopmentCard]] = implicitly[DeltaGen[PublicDevCardInv[DevelopmentCard], PlayCard[DevelopmentCard]]]
 
-    implicit val moveRobberAndStealAction: GameAction[RobberMoveResult[Resource], HNil, Delta[PublicInventories[Resource]] :+: Delta[RobberLocation] :+: CNil]                                                                                                            = MoveRobberAndStealAction.public[Resource, PublicInventories]
-    implicit val buyDevelopmentCardAction: GameAction[BuyDevelopmentCardMoveResult[DevelopmentCard], Turn :: HNil, Delta[DevelopmentCardDeckSize] :+: Delta[PublicDevCardInv[DevelopmentCard]] :+: Delta[Bank[Resource]] :+: Delta[PublicInventories[Resource]] :+: CNil] = BuyDevelopmentCardAction.public[Resource, PublicInventories, DevelopmentCard, PublicDevCardInv](ResourceSet(ORE, WHEAT, SHEEP))
-    implicit val playPointAction: GameAction[PlayPointMove, Turn :: HNil, Delta[PlayerPoints] :+: Delta[PublicDevCardInv[DevelopmentCard]] :+: CNil]                                                                                                                      = PlayPointAction.public.playDevelopmentCard[DevelopmentCard, PublicDevCardInv](Point)
+    implicit val moveRobberAndStealAction: GameAction[RobberMoveResult[Resource], HNil, Delta[PublicInventories[Resource]] :+: Delta[RobberLocation] :+: CNil]                                                                                                                                                                              =
+      MoveRobberAndStealAction.public[Resource, PublicInventories]
+    implicit val buyDevelopmentCardAction: GameAction[BuyDevelopmentCardMoveResult[DevelopmentCard], Turn :: HNil, Delta[DevelopmentCardDeckSize] :+: Delta[PublicDevCardInv[DevelopmentCard]] :+: Delta[Bank[Resource]] :+: Delta[PublicInventories[Resource]] :+: CNil]                                                                   = BuyDevelopmentCardAction.public[Resource, PublicInventories, DevelopmentCard, PublicDevCardInv](ResourceSet(ORE, WHEAT, SHEEP))
+    implicit val playPointAction         : GameAction[PlayPointMove, Turn :: HNil, Delta[PlayerPoints] :+: Delta[PublicDevCardInv[DevelopmentCard]] :+: CNil]                                                                                                                                                                               = PlayPointAction.public.playDevelopmentCard[DevelopmentCard, PublicDevCardInv](Point)
     implicit val playKnightAction        : GameAction[PlayKnightResult[Resource], Turn :: LargestArmyPlayer :: PlayerArmyCount :: HNil, Delta[PlayerArmyCount] :+: Delta[PlayerPoints] :+: Delta[LargestArmyPlayer] :+: Delta[RobberLocation] :+: Delta[PublicInventories[Resource]] :+: Delta[PublicDevCardInv[DevelopmentCard]] :+: CNil] = moveRobberAndStealAction.compose[PlayKnightResult[Resource]](_.inner)
       .playDevelopmentCard[DevelopmentCard, PublicDevCardInv](Knight)
       .andThen(LargestArmyExtension(3).compose(_.move.player))
 
-    type MOVES = RobberMoveResult[Resource] :+: BuyDevelopmentCardMoveResult[DevelopmentCard] :+: PlayPointMove :+: PlayKnightResult[Resource] :+: core.MOVES
+    type MOVES = RobberMoveResult[Resource] :+: BuyDevelopmentCardMoveResult[DevelopmentCard] :+: PlayPointMove :+: PlayKnightResult[Resource] :+: super.CORE_MOVES
     type STATE = RobberLocation :: PublicInventories[Resource] :: PublicDevCardInv[DevelopmentCard] :: DevelopmentCardDeckSize :: state.Bank[Resource] :: state.Turn :: state.PlayerPoints :: LargestArmyPlayer :: PlayerArmyCount :: VertexBuildingState[BaseVertexBuilding] :: SOCRoadLengths :: SOCLongestRoadPlayer :: BaseBoard[Resource] :: EdgeBuildingState[BaseEdgeBuilding] :: state.MoveCount :: HNil
 
     //val game = ImmutableGame.apply[MOVES]().addGlobalAction(MoveCountExtension()).build().align[MOVES, STATE]()

@@ -4,6 +4,8 @@ import game.Delta.DeltaGen._
 import game.ImmutableGame.Aux
 import org.scalatest.{FunSpec, Matchers}
 import shapeless.{:+:, ::, CNil, HNil}
+import soc.core.actions.MoveCountExtension
+import soc.core.state.MoveCount
 
 class ImmutableGameSpec extends FunSpec with Matchers {
 
@@ -35,17 +37,18 @@ class ImmutableGameSpec extends FunSpec with Matchers {
       .toList
   }
 
-  val game: Aux[M1 :+: M2 :+: CNil, Bar :: Foo :: HNil, Delta[Bar] :+: Delta[Foo] :+: CNil] = ImmutableGame.apply[M1 :+: M2 :+: CNil]()
+  val builder = ImmutableGame.apply[M1 :+: M2 :+: CNil]().addGlobalAction(MoveCountExtension())
+  val game    = builder.build()
 
   describe("Immutable Game") {
 
     it("should update the state on action") {
       val move      = M1(1)
-      val initState = Foo(0) :: Bar("0") :: HNil
+      val initState = Foo(0) :: Bar("0") :: MoveCount(0) :: HNil
 
-      val result: (List[Delta[Bar] :+: Delta[Foo] :+: CNil], Foo :: Bar :: HNil) = game.apply(move, initState)
-      val state                                                                  = result._2
-      val delta                                                                  = result._1.head.select[Delta[Foo]].flatMap(_.getValue.select[String])
+      val result = game.apply(move, initState)
+      val state  = result._2
+      val delta  = result._1.head.select[Delta[Foo]].flatMap(_.getValue.select[String])
 
       state.select[Foo] shouldBe Foo(1)
       delta.isDefined shouldBe true

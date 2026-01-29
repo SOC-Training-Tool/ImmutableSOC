@@ -308,7 +308,7 @@ object BaseGameFixtures {
     val initPublicInfoState: PublicInfoState       =
       ImmutableGame.initialize[PublicInfoState].replaceAll(board :: Bank(bank) :: DevelopmentCardDeckSize(devDeck.size) :: robberLocation :: HNil)
 
-    val perfectResult = testMoveResults.foldLeft(initPerfectInfoState) { case (s, m) => BaseGame.PerfectInfoGame.game.applyMove(m, s) }
+    //val perfectResult = testMoveResults.foldLeft(initPerfectInfoState) { case (s, m) => BaseGame.PerfectInfoGame.game.applyMove(m, s) }
 
     val imperfectTestMoveResults = testMoveResults.map(implicitly[ToPublicInfo[PublicInfoMoves, PerfectInfoMoves]].apply) ::: List(
       Coproduct[PublicInfoMoves](PlayPointMove(0)),
@@ -317,7 +317,7 @@ object BaseGameFixtures {
       Coproduct[PublicInfoMoves](PlayPointMove(3))
     )
 
-    val publicResult = imperfectTestMoveResults.foldLeft(initPublicInfoState) { case (s, m) => BaseGame.PublicInfoGame.game.applyMove(m, s) }
+    //val publicResult = imperfectTestMoveResults.foldLeft(initPublicInfoState) { case (s, m) => BaseGame.PublicInfoGame.game.applyMove(m, s) }
   }
 
   object imperfectInfoGame {
@@ -763,9 +763,9 @@ object BaseGameFixtures {
     val initPublicInfoState: PublicInfoState =
       ImmutableGame.initialize[PublicInfoState].replaceAll(board :: Bank(bank) :: DevelopmentCardDeckSize(25) :: robberLocation :: HNil)
 
-    val publicResult = testMoveResults.foldLeft(initPublicInfoState) {
-      case (s, m) => BaseGame.PublicInfoGame.game.applyMove(m, s)
-    }
+    //val publicResult = testMoveResults.foldLeft(initPublicInfoState) {
+    //  case (s, m) => BaseGame.PublicInfoGame.game.applyMove(m, s)
+    //}
   }
 
 }

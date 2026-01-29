@@ -59,10 +59,8 @@ object Delta {
 
     def apply[C <: Coproduct](implicit e: ExtractState[C]): Aux[C, e.Out] = e
 
-    implicit def recur[H, T <: Coproduct](implicit next: ExtractState[T]): Aux[Delta[H] :+: T, H :: next.Out] =
-      new ExtractState[Delta[H] :+: T] {
-        type Out = H :: next.Out
-      }
+    implicit def recur[H, T <: Coproduct, NOut <: HList](implicit next: ExtractState.Aux[T, NOut], un: hlist.Union[H :: HNil, NOut]): Aux[Delta[H] :+: T, un.Out] =
+      new ExtractState[Delta[H] :+: T] {type Out = un.Out}
 
     implicit val cnil: Aux[CNil, HNil] = new ExtractState[CNil] {
       type Out = HNil

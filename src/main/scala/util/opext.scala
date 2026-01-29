@@ -1,7 +1,7 @@
 package util
 
-import shapeless.ops.coproduct
-import shapeless.{:+:, CNil, Coproduct}
+import shapeless.ops.{coproduct, hlist}
+import shapeless.{:+:, ::, CNil, Coproduct, HList, HNil}
 
 object opext {
 
@@ -60,6 +60,41 @@ object opext {
       override def applyLeft(c: C): Out = c
       override def applyRight(c: CNil): Out = c.embed[C]
     }
+  }
+
+  trait HListDistinct[L <: HList] {type Out <: HList}
+
+  trait LowPriortiyHListDistinct {
+    type Aux[L <: HList, Out0 <: HList] = HListDistinct[L] { type Out = Out0 }
+
+    implicit def lowPriorityDistinct[H, T <: HList](implicit next: HListDistinct[T]): Aux[H :: T, H :: next.Out] = new HListDistinct[H :: T] { type Out = H :: next.Out}
+  }
+
+  object HListDistinct extends LowPriortiyHListDistinct {
+
+    def apply[L <: HList](implicit d: HListDistinct[L]): Aux[L, d.Out] = d
+
+    implicit def distinct[H, T <: HList](implicit selector: hlist.Selector[T, H], next: HListDistinct[T]): Aux[H :: T, next.Out] = new HListDistinct[H :: T] { type Out = next.Out}
+
+    implicit val hnil: Aux[HNil, HNil] = new HListDistinct[HNil] { type Out = HNil}
+
+  }
+
+  trait CoproductDistinct[L <: Coproduct] {type Out <: Coproduct}
+
+  trait LowPriortiyCoproductDistinct {
+    type Aux[L <: Coproduct, Out0 <: Coproduct] = CoproductDistinct[L] { type Out = Out0 }
+
+    implicit def lowPriorityDistinct[H, T <: Coproduct](implicit next: CoproductDistinct[T]): Aux[H :+: T, H :+: next.Out] = new CoproductDistinct[H :+: T] { type Out = H :+: next.Out}
+  }
+
+  object CoproductDistinct extends LowPriortiyCoproductDistinct {
+
+    def apply[L <: Coproduct](implicit d: CoproductDistinct[L]): Aux[L, d.Out] = d
+
+    implicit def distinct[H, T <: Coproduct](implicit selector: coproduct.Inject[T, H], next: CoproductDistinct[T]): Aux[H :+: T, next.Out] = new CoproductDistinct[H :+: T] { type Out = next.Out}
+
+    implicit val cnil: Aux[CNil, CNil] = new CoproductDistinct[CNil] { type Out = CNil}
   }
 
 

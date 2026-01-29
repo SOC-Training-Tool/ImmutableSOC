@@ -11,8 +11,12 @@ libraryDependencies += "com.chuusai" %% "shapeless" % "2.3.12"
 
 Test / publishArtifact := true
 
+// 1. Enable forking so the app runs in its own JVM
+fork in run := true
+// 2. Define the heap size for that forked JVM
+javaOptions in run += "-Xmx2G"
 scalacOptions += "-Xlog-implicits"
-//scalacOptions += "-Ystatistics"
+scalacOptions += "-J-Xss4m"
 
 // Publishing settings
 publishTo := Some("GitHub Package Registry" at "https://maven.pkg.github.com/SOC-Training-Tool/ImmutableSOC")
