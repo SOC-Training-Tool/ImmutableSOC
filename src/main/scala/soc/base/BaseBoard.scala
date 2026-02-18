@@ -34,7 +34,7 @@ object BaseBoard {
     18 -> List(53, 48, 49, 50, 51, 52)
   )
 
-  implicit val baseBoard: SOCBoard[Resource, BaseBoard[Resource]] = (t: BaseBoard[Resource]) => {
+  given baseBoard: SOCBoard[Resource, BaseBoard[Resource]] = (t: BaseBoard[Resource]) => {
     val vertexMap = baseVertexMap.view.mapValues(_.map(Vertex)).toMap
     t.hexes.zipWithIndex.map { case (hex: Hex[Resource], node: Int) =>
       BoardHex(node, hex, vertexMap(node)) // TODO: unsafe

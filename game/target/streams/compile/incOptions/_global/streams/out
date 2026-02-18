@@ -1,0 +1,2 @@
+[debug] Created transactional ClassFileManager with tempDir = /Users/gregoryberkman/SOC/ImmutableSOC/game/target/scala-3.5.2/classes.bak
+[debug] Removing the temporary directory used for backing up class files: /Users/gregoryberkman/SOC/ImmutableSOC/game/target/scala-3.5.2/classes.bak

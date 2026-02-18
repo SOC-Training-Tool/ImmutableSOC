@@ -1,30 +1,41 @@
 package soc
 
-import game.PerfectInfoMoveResult
-import shapeless.{Coproduct, Poly1}
-import shapeless.ops.coproduct
+import game.{:+:, CNil, Inl, Inr, PerfectInfoMoveResult, CoproductBasis}
 
-trait ToPublicInfo[Public, Perfect] extends shapeless.DepFn1[Perfect] {
-  override type Out = Public
-}
+trait ToPublicInfo[Public, Perfect]:
+  def apply(perfect: Perfect): Public
 
-object ToPublicInfo {
+object ToPublicInfo:
 
-  private object PerfectToImperfectMovesPoly extends Poly1 {
-    implicit def toPublic[P <: PerfectInfoMoveResult]: PerfectToImperfectMovesPoly.Case.Aux[P, P#PublicInfoMoveResult] = at[P](_.getPerspectiveResults(Seq(-1)).head._2)
+  // Base case
+  given cnilToPublic: ToPublicInfo[CNil, CNil] with
+    def apply(perfect: CNil): CNil = perfect.impossible
 
-    implicit def default[Perfect, Imperfect](implicit toPublic: ToPublicInfo[Imperfect, Perfect]): Case.Aux[Perfect, Imperfect] = at[Perfect](toPublic.apply)
+  // Helper to extract PublicInfoMoveResult from PerfectInfoMoveResult
+  private def toPublic[P <: PerfectInfoMoveResult](p: P): p.PublicInfoMoveResult =
+    p.getPerspectiveResults(Seq(-1)).head._2.asInstanceOf[p.PublicInfoMoveResult]
 
-  }
+  // Recursive case for PerfectInfoMoveResult types
+  given perfectInfoConverter[H <: PerfectInfoMoveResult, T, PublicT](using
+    tailConverter: ToPublicInfo[PublicT, T]
+  ): ToPublicInfo[H#PublicInfoMoveResult :+: PublicT, H :+: T] with
+    def apply(perfect: H :+: T): H#PublicInfoMoveResult :+: PublicT = perfect match
+      case Inl(h) => Inl(toPublic(h))
+      case Inr(t) => Inr(tailConverter(t))
 
-  implicit def movesCoproduct[PublicInfoMoves <: Coproduct, PerfectInfoMoves <: Coproduct, MapOut <: Coproduct]
-  (implicit mapper: coproduct.Mapper.Aux[PerfectToImperfectMovesPoly.type, PerfectInfoMoves, MapOut],
-   basis: coproduct.Basis[PublicInfoMoves, MapOut]
-  ): ToPublicInfo[PublicInfoMoves, PerfectInfoMoves] =
-    new ToPublicInfo[PublicInfoMoves, PerfectInfoMoves] {
-      override def apply(perfectInfoMove: PerfectInfoMoves): PublicInfoMoves = {
-        val outCoproduct: MapOut = perfectInfoMove.map(PerfectToImperfectMovesPoly)
-        outCoproduct.embed[PublicInfoMoves]
-      }
-    }
-}
+  // Lower priority: custom converter
+  // Scala 3 will choose perfectInfoConverter over this when H <: PerfectInfoMoveResult
+  given defaultConverter[H, T, PublicH, PublicT](using
+    hConverter: ToPublicInfo[PublicH, H],
+    tailConverter: ToPublicInfo[PublicT, T]
+  ): ToPublicInfo[PublicH :+: PublicT, H :+: T] with
+    def apply(perfect: H :+: T): PublicH :+: PublicT = perfect match
+      case Inl(h) => Inl(hConverter(h))
+      case Inr(t) => Inr(tailConverter(t))
+
+  // Final embedding into target coproduct
+  given embedConverter[Public, Perfect, Intermediate](using
+    converter: ToPublicInfo[Intermediate, Perfect],
+    basis: CoproductBasis[Public, Intermediate]
+  ): ToPublicInfo[Public, Perfect] with
+    def apply(perfect: Perfect): Public = basis.embed(converter(perfect))

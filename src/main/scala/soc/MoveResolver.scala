@@ -1,33 +1,35 @@
 package soc
 
-import game.PerfectInfoMoveResult
-import shapeless.ops.coproduct
-import shapeless.{Coproduct, DepFn2, Poly1}
+import game.{:+:, CNil, Inl, Inr, PerfectInfoMoveResult}
 
-trait MoveResolver[Move, PerfectInfoState] extends DepFn2[Move, PerfectInfoState]
+trait MoveResolver[Move, PerfectInfoState]:
+  type Out
+  def apply(move: Move, state: PerfectInfoState): Out
 
-object MoveResolver {
+object MoveResolver:
+  type Aux[Move, PerfectInfoState, Out0] = MoveResolver[Move, PerfectInfoState] { type Out = Out0 }
 
-  type Aux[Move, PerfectInfoState, PerfectInfoMoveResult] = MoveResolver[Move, PerfectInfoState] {
-    type Out = PerfectInfoMoveResult
-  }
+  // Base case: CNil
+  given cnilResolver[S]: MoveResolver[CNil, S] with
+    type Out = CNil
+    def apply(move: CNil, state: S): CNil = move.impossible
 
-  object MoveResolverPoly extends Poly1 {
-    implicit def perfectInfoMove[P <: PerfectInfoMoveResult, S]: Case.Aux[(P, S), P] =
-      at[(P, S)] { case (move, _) => move }
+  // Recursive case: H is already a PerfectInfoMoveResult
+  given perfectInfoMove[H <: PerfectInfoMoveResult, T, S, TailOut](using
+    tailResolver: MoveResolver[T, S] { type Out = TailOut }
+  ): MoveResolver[H :+: T, S] with
+    type Out = H :+: TailOut
+    def apply(move: H :+: T, state: S): H :+: TailOut = move match
+      case Inl(h) => Inl(h)
+      case Inr(t) => Inr(tailResolver(t, state))
 
-    implicit def default[M, S](implicit resolver: MoveResolver[M, S]): Case.Aux[(M, S), resolver.Out] =
-      at[(M, S)] { case (m, s) => resolver.apply(m, s) }
-  }
-
-  implicit def movesCoproduct[Move <: Coproduct, PerfectInfoState, PerfectInfoMoveResult <: Coproduct, ZipOut <: Coproduct, MapOut <: Coproduct]
-  (implicit zipConst: coproduct.ZipConst.Aux[PerfectInfoState, Move, ZipOut],
-   mapper: coproduct.Mapper.Aux[MoveResolverPoly.type, ZipOut, MapOut],
-   align: coproduct.Align[MapOut, PerfectInfoMoveResult]): Aux[Move, PerfectInfoState, PerfectInfoMoveResult] =
-    new MoveResolver[Move, PerfectInfoState] {
-      override type Out = PerfectInfoMoveResult
-      override def apply(t: Move, u: PerfectInfoState): Out = {
-        t.zipConst(u).map(MoveResolverPoly).align[PerfectInfoMoveResult]
-      }
-    }
-}
+  // Lower priority: H needs resolution via MoveResolver instance
+  // Scala 3 will choose perfectInfoMove over this when H <: PerfectInfoMoveResult
+  given defaultResolver[H, T, S, HOut, TailOut](using
+    hResolver: MoveResolver[H, S] { type Out = HOut },
+    tailResolver: MoveResolver[T, S] { type Out = TailOut }
+  ): MoveResolver[H :+: T, S] with
+    type Out = HOut :+: TailOut
+    def apply(move: H :+: T, state: S): HOut :+: TailOut = move match
+      case Inl(h) => Inl(hResolver(h, state))
+      case Inr(t) => Inr(tailResolver(t, state))

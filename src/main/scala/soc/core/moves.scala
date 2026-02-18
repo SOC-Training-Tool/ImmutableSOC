@@ -1,7 +1,6 @@
 package soc.core
 
-import game.{GameMove, GameMoveResult, InventorySet, PerfectInfoMoveResult, PerfectInformationGameMove}
-import shapeless.{:+:, CNil}
+import game.{:+:, CNil, GameMove, GameMoveResult, InventorySet, PerfectInfoMoveResult, PerfectInformationGameMove}
 
 case class EndTurnMove(player: Int) extends PerfectInformationGameMove[EndTurnMove]
 

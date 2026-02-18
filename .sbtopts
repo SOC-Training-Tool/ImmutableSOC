@@ -1,0 +1,3 @@
+-J-Xmx4G
+-J-Xms512M
+-J-XX:ReservedCodeCacheSize=256M

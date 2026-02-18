@@ -1,0 +1,79 @@
+[debug] [zinc] IncrementalCompile -----------
+[debug] IncrementalCompile.incrementalCompile
+[debug] previous = Stamps for: 14 products, 1 sources, 4 libraries
+[debug] current source = Set(${BASE}/game/src/test/scala/game/ImmutableGameSpec.scala)
+[debug] > initialChanges = InitialChanges(Changes(added = Set(), removed = Set(), changed = Set(), unmodified = ...),Set(),Set(),API Changes: Set(APIChangeDueToMacroDefinition(game.utils$BuildGameImpl$), APIChangeDueToMacroDefinition(game.utils$BuildGameImpl), APIChangeDueToMacroDefinition(game.utils$ComputeGameTypes$), NamesChange(game.ImmutableGame,ModifiedNames(changes = UsedName(StateToDelta,[Default]))), NamesChange(game.ImmutableGame$,ModifiedNames(changes = UsedName(StateToDelta,[Default]))), APIChangeDueToMacroDefinition(game.utils$ComputeGameTypes)))
+[debug] The game.utils$BuildGameImpl$ source file declares a macro.
+[debug] All member reference dependencies will be considered within this context.
+[debug] Files invalidated by inheriting from (external) game.utils$BuildGameImpl$: Set()
+[debug] Now invalidating by inheritance (internally).
+[debug] Getting direct dependencies of all classes transitively invalidated by inheritance.
+[debug] Getting classes that directly depend on (external) game.utils$BuildGameImpl$.
+[debug] The following member ref dependencies of game.utils$BuildGameImpl$ are invalidated:
+[debug] 	game.ImmutableGameSpec
+[debug] The game.utils$BuildGameImpl source file declares a macro.
+[debug] All member reference dependencies will be considered within this context.
+[debug] Files invalidated by inheriting from (external) game.utils$BuildGameImpl: Set()
+[debug] Now invalidating by inheritance (internally).
+[debug] Getting direct dependencies of all classes transitively invalidated by inheritance.
+[debug] Getting classes that directly depend on (external) game.utils$BuildGameImpl.
+[debug] The following member ref dependencies of game.utils$BuildGameImpl are invalidated:
+[debug] 	game.ImmutableGameSpec
+[debug] The game.utils$ComputeGameTypes$ source file declares a macro.
+[debug] All member reference dependencies will be considered within this context.
+[debug] Files invalidated by inheriting from (external) game.utils$ComputeGameTypes$: Set()
+[debug] Now invalidating by inheritance (internally).
+[debug] Getting direct dependencies of all classes transitively invalidated by inheritance.
+[debug] Getting classes that directly depend on (external) game.utils$ComputeGameTypes$.
+[debug] The following member ref dependencies of game.utils$ComputeGameTypes$ are invalidated:
+[debug] 	game.ImmutableGameSpec
+[debug] The game.ImmutableGame has the following regular definitions changed:
+[debug] 	UsedName(StateToDelta,[Default]).
+[debug] All member reference dependencies will be considered within this context.
+[debug] Files invalidated by inheriting from (external) game.ImmutableGame: Set()
+[debug] Now invalidating by inheritance (internally).
+[debug] Getting direct dependencies of all classes transitively invalidated by inheritance.
+[debug] Getting classes that directly depend on (external) game.ImmutableGame.
+[debug] None of the modified names appears in source file of game.ImmutableGameSpec. This dependency is not being considered for invalidation.
+[debug] The game.ImmutableGame$ has the following regular definitions changed:
+[debug] 	UsedName(StateToDelta,[Default]).
+[debug] All member reference dependencies will be considered within this context.
+[debug] Files invalidated by inheriting from (external) game.ImmutableGame$: Set()
+[debug] Now invalidating by inheritance (internally).
+[debug] Getting direct dependencies of all classes transitively invalidated by inheritance.
+[debug] Getting classes that directly depend on (external) game.ImmutableGame$.
+[debug] None of the modified names appears in source file of game.ImmutableGameSpec. This dependency is not being considered for invalidation.
+[debug] The game.utils$ComputeGameTypes source file declares a macro.
+[debug] All member reference dependencies will be considered within this context.
+[debug] Files invalidated by inheriting from (external) game.utils$ComputeGameTypes: Set()
+[debug] Now invalidating by inheritance (internally).
+[debug] Getting direct dependencies of all classes transitively invalidated by inheritance.
+[debug] Getting classes that directly depend on (external) game.utils$ComputeGameTypes.
+[debug] The following member ref dependencies of game.utils$ComputeGameTypes are invalidated:
+[debug] 	game.ImmutableGameSpec
+[debug] 
+[debug] Initial source changes:
+[debug] 	removed: Set()
+[debug] 	added: Set()
+[debug] 	modified: Set()
+[debug] Invalidated products: Set()
+[debug] External API changes: API Changes: Set(APIChangeDueToMacroDefinition(game.utils$BuildGameImpl$), APIChangeDueToMacroDefinition(game.utils$BuildGameImpl), APIChangeDueToMacroDefinition(game.utils$ComputeGameTypes$), NamesChange(game.ImmutableGame,ModifiedNames(changes = UsedName(StateToDelta,[Default]))), NamesChange(game.ImmutableGame$,ModifiedNames(changes = UsedName(StateToDelta,[Default]))), APIChangeDueToMacroDefinition(game.utils$ComputeGameTypes))
+[debug] Modified binary dependencies: Set()
+[debug] Initial directly invalidated classes: Set()
+[debug] Sources indirectly invalidated by:
+[debug] 	product: Set()
+[debug] 	binary dep: Set()
+[debug] 	external source: Set(game.ImmutableGameSpec)
+[debug] All initially invalidated classes: Set(game.ImmutableGameSpec)
+[debug] All initially invalidated sources:Set()
+[debug] Initial set of included nodes: game.ImmutableGameSpec.M2, game.ImmutableGameSpec.Foo, game.ImmutableGameSpec.MoveCount, game.ImmutableGameSpec.M1, game.ImmutableGameSpec.Bar, game.ImmutableGameSpec
+[debug] Recompiling all sources: number of invalidated sources > 50.0 percent of all sources
+[debug] compilation cycle 1
+[info] compiling 1 Scala source to /Users/gregoryberkman/SOC/ImmutableSOC/game/target/scala-2.13/test-classes ...
+[debug] Returning already retrieved and compiled bridge: /Users/gregoryberkman/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-lang/scala2-sbt-bridge/2.13.15/scala2-sbt-bridge-2.13.15.jar.
+[debug] [zinc] Running cached compiler 4a5f09cd for Scala compiler version 2.13.15
+[debug] [zinc] The Scala compiler is invoked with:
+[debug] 	-classpath
+[debug] 	/Users/gregoryberkman/SOC/ImmutableSOC/game/target/scala-2.13/test-classes:/Users/gregoryberkman/SOC/ImmutableSOC/game/target/scala-2.13/classes:/Users/gregoryberkman/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-lang/scala-library/2.13.15/scala-library-2.13.15.jar:/Users/gregoryberkman/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/chuusai/shapeless_2.13/2.3.12/shapeless_2.13-2.3.12.jar:/Users/gregoryberkman/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-lang/scala-reflect/2.13.15/scala-reflect-2.13.15.jar:/Users/gregoryberkman/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scalatest/scalatest_2.13/3.0.8/scalatest_2.13-3.0.8.jar:/Users/gregoryberkman/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scalactic/scalactic_2.13/3.0.8/scalactic_2.13-3.0.8.jar:/Users/gregoryberkman/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-lang/modules/scala-xml_2.13/1.2.0/scala-xml_2.13-1.2.0.jar
+[debug] Scala compilation took 10.959157721 s
+[info] done compiling

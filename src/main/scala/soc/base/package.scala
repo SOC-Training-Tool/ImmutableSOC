@@ -1,6 +1,7 @@
 package soc
 
-import shapeless.{:+:, CNil, Coproduct}
+import game.{:+:, CNil, Inl, Inr}
+import game.inject
 
 package object base {
 
@@ -18,14 +19,12 @@ package object base {
 
     type DevelopmentCard = Knight.type :+: Monopoly.type :+: YearOfPlenty.type :+: RoadBuilder.type :+: Point.type :+: CNil
 
-    val KNIGHT = Coproduct[DevelopmentCard](Knight)
-    val MONOPOLY = Coproduct[DevelopmentCard](Monopoly)
-    val YEAR_OF_PLENTY = Coproduct[DevelopmentCard](YearOfPlenty)
-    val ROAD_BUILDER = Coproduct[DevelopmentCard](RoadBuilder)
-    val POINT = Coproduct[DevelopmentCard](Point)
+    val KNIGHT = Knight.inject[DevelopmentCard]
+    val MONOPOLY = Monopoly.inject[DevelopmentCard]
+    val YEAR_OF_PLENTY = YearOfPlenty.inject[DevelopmentCard]
+    val ROAD_BUILDER = RoadBuilder.inject[DevelopmentCard]
+    val POINT = Point.inject[DevelopmentCard]
   }
 
   type DevelopmentCard = DevelopmentCards.DevelopmentCard
-
-
 }

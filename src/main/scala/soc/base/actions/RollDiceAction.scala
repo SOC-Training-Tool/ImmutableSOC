@@ -1,30 +1,41 @@
 package soc.base.actions
 
 import game.Delta.DeltaGen
-import game.{Delta, DeltaList, GameAction, GameState, InventorySet}
-import shapeless.ops.coproduct
-import shapeless.{:+:, ::, CNil, Coproduct, HNil, Poly1}
+import game.{Delta, DeltaList, GameAction, GameState, InventorySet, :+:, CNil, Inl, Inr, tupleSelect}
 import soc.base.state.RobberLocation
-import soc.core.SOCBoard.SOCBoardOps
+import soc.core.SOCBoard.{hexesForVertex, numberHexes}
 import soc.core.Transactions.Gain
 import soc.core.state.{Bank, VertexBuildingState}
 import soc.core.{BoardHex, RollDiceMoveResult, SOCBoard, VertexBuildingValue}
 
 object RollDiceAction {
 
-  type ResForVertex[VB <: Coproduct] = coproduct.Folder.Aux[ResourcesForBuildingPoly.type, VB, Int]
-  object ResourcesForBuildingPoly extends Poly1 {
-    implicit def vertexBuilding[A](implicit vbValue: VertexBuildingValue[A]): Case.Aux[A, Int] = at(_ => vbValue.apply)
+  trait VertexBuildingFolder[VB] {
+    def fold(vb: VB): Int
   }
 
-  def apply[II, Inv[_], BOARD, VB <: Coproduct]()(implicit delta: DeltaGen[Inv[II], Gain[II]], b: SOCBoard[II, BOARD], vertexFolder: ResForVertex[VB]): GameAction[RollDiceMoveResult, BOARD :: RobberLocation :: Bank[II] :: VertexBuildingState[VB] :: HNil, Delta[Inv[II]] :+: Delta[Bank[II]] :+: CNil] = {
+  object VertexBuildingFolder {
+    given cnilFolder: VertexBuildingFolder[CNil] = new VertexBuildingFolder[CNil] {
+      def fold(vb: CNil): Int = vb.impossible
+    }
 
-    GameAction.fromState[RollDiceMoveResult, BOARD :: RobberLocation :: Bank[II] :: VertexBuildingState[VB] :: HNil] { case (move, state) =>
+    given consFolder[H, T](using VertexBuildingValue[H], VertexBuildingFolder[T]): VertexBuildingFolder[H :+: T] = new VertexBuildingFolder[H :+: T] {
+      def fold(vb: H :+: T): Int = vb match
+        case Inl(h) => summon[VertexBuildingValue[H]].apply
+        case Inr(t) => summon[VertexBuildingFolder[T]].fold(t)
+    }
+  }
 
-      val robberHexId       = state.select[RobberLocation].robberHexId
-      val vertexBuildingMap = state.select[VertexBuildingState[VB]].map
-      val bank              = state.select[Bank[II]].b
-      val board             = state.select[BOARD]
+  type ResForVertex[VB] = VertexBuildingFolder[VB]
+
+  def apply[II, Inv[_], BOARD, VB]()(using delta: DeltaGen[Inv[II], Gain[II]], b: SOCBoard[II, BOARD], vertexFolder: ResForVertex[VB]): GameAction[RollDiceMoveResult, (BOARD, RobberLocation, Bank[II], VertexBuildingState[VB]), Delta[Inv[II]] :+: Delta[Bank[II]] :+: CNil] = {
+
+    GameAction.fromState[RollDiceMoveResult, (BOARD, RobberLocation, Bank[II], VertexBuildingState[VB])] { case (move, state) =>
+
+      val robberHexId       = tupleSelect[(BOARD, RobberLocation, Bank[II], VertexBuildingState[VB]), RobberLocation](state).robberHexId
+      val vertexBuildingMap = tupleSelect[(BOARD, RobberLocation, Bank[II], VertexBuildingState[VB]), VertexBuildingState[VB]](state).map
+      val bank              = tupleSelect[(BOARD, RobberLocation, Bank[II], VertexBuildingState[VB]), Bank[II]](state).b
+      val board             = tupleSelect[(BOARD, RobberLocation, Bank[II], VertexBuildingState[VB]), BOARD](state)
 
       def resourcesFromHex(hexes: Seq[BoardHex[II]]) = {
         val playerGains = for {
@@ -33,7 +44,7 @@ object RollDiceAction {
           vertex <- node.vertices
           vb <- vertexBuildingMap.get(vertex).toSeq
           player = vb.player
-          amt = vb.building.fold(ResourcesForBuildingPoly)
+          amt = vertexFolder.fold(vb.building)
         } yield player -> InventorySet.fromMap(Map(resource -> amt))
         playerGains.foldLeft(Map.empty[Int, InventorySet[II, Int]]) { case (m, (player, res)) =>
           m + (player -> res)
@@ -60,7 +71,7 @@ object RollDiceAction {
       val gains = actualResForPlayers.map { case (player, inv) => Gain(player, inv) }.toList
       DeltaList()
         .add[Bank[II]](Bank.Take(trueTotalCollected))
-        .add[Inv[II]](gains: _*)
+        .add[Inv[II]](gains*)
         .toList
     }
   }

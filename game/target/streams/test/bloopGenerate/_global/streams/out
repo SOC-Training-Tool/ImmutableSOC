@@ -1,0 +1,4 @@
+[debug] [game-test] Classpath dependencies List()
+[debug] [game-test] Dependencies from configurations List(game)
+[debug] Bloop wrote the configuration of project 'game-test' to '/Users/gregoryberkman/SOC/ImmutableSOC/.bloop/game-test.json'
+[success] Generated .bloop/game-test.json

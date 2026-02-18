@@ -1,8 +1,7 @@
 package soc.base
 
-import game.GameState
+import game.{:+:, CNil, Inl, Inr, GameState}
 import game.ImmutableGame.StateInitializer
-import shapeless.{:+:, CNil, Poly1}
 import soc.core.PlayerMap
 import soc.core.state.PlayerIds
 
@@ -37,9 +36,10 @@ package object state {
 
     type Delta = Set :+: Remove.type :+: CNil
 
-    object ApplyDelta extends Poly1 {
-      implicit val set   : Case.Aux[Set, Option[Int]]         = at[Set](s => Option(s.player))
-      implicit val remove: Case.Aux[Remove.type, Option[Int]] = at[Remove.type](_ => None)
+    def applyDelta(delta: Delta): Option[Int] = delta match {
+      case Inl(s)          => Option(s.player)
+      case Inr(Inl(_))     => None
+      case Inr(Inr(cnil))  => cnil.impossible
     }
   }
 
@@ -50,60 +50,57 @@ package object state {
 
     type Delta = Increment :+: Set :+: CNil
 
-    object ApplyDelta extends Poly1 {
-      implicit val increment: Case.Aux[(Increment, PlayerMap[Int]), Map[Int, Int]] =
-        at[(Increment, PlayerMap[Int])] { case (incr, map) => map + (incr.player -> map.getOrElse(incr.player, 0)) }
-      implicit val set      : Case.Aux[(Set, PlayerMap[Int]), Map[Int, Int]]       =
-        at[(Set, PlayerMap[Int])] { case (set, map) => map + (set.player -> set.length) }
+    def applyDelta(delta: Delta, map: PlayerMap[Int]): Map[Int, Int] = delta match {
+      case Inl(incr)       => map + (incr.player -> map.getOrElse(incr.player, 0))
+      case Inr(Inl(set))   => map + (set.player -> set.length)
+      case Inr(Inr(cnil))  => cnil.impossible
     }
 
+    def applyIncrement(incr: Increment, map: PlayerMap[Int]): Map[Int, Int] =
+      map + (incr.player -> map.getOrElse(incr.player, 0))
   }
 
   case class SOCLongestRoadPlayer(player: Option[Int]) extends GameState[SOCLongestRoadPlayer] {
     override type Delta = SpecialPlayer.Delta
 
-    override def apply(delta: Delta): SOCLongestRoadPlayer = SOCLongestRoadPlayer(delta.fold(SpecialPlayer.ApplyDelta))
+    override def apply(delta: Delta): SOCLongestRoadPlayer = SOCLongestRoadPlayer(SpecialPlayer.applyDelta(delta))
   }
 
   object SOCLongestRoadPlayer {
-    implicit val initLongestRoadPlayer: StateInitializer[SOCLongestRoadPlayer] = new StateInitializer[SOCLongestRoadPlayer] {
+    given initLongestRoadPlayer: StateInitializer[SOCLongestRoadPlayer] with
       override def apply(): SOCLongestRoadPlayer = SOCLongestRoadPlayer(None)
-    }
   }
 
   case class SOCRoadLengths(m: PlayerMap[Int]) extends GameState[SOCRoadLengths] {
     override type Delta = SpecialCounts.Delta
 
-    override def apply(delta: Delta): SOCRoadLengths = SOCRoadLengths(delta.zipConst(m).fold(SpecialCounts.ApplyDelta))
+    override def apply(delta: Delta): SOCRoadLengths = SOCRoadLengths(SpecialCounts.applyDelta(delta, m))
   }
 
   object SOCRoadLengths {
-    implicit def initRoadCount(implicit playerIds: PlayerIds): StateInitializer[SOCRoadLengths] = new StateInitializer[SOCRoadLengths] {
+    given initRoadCount(using playerIds: PlayerIds): StateInitializer[SOCRoadLengths] with
       override def apply(): SOCRoadLengths = SOCRoadLengths(playerIds.players.map(_ -> 0).toMap)
-    }
   }
 
   case class LargestArmyPlayer(player: Option[Int]) extends GameState[LargestArmyPlayer] {
     type Delta = SpecialPlayer.Delta
 
-    override def apply(delta: Delta): LargestArmyPlayer = LargestArmyPlayer(delta.fold(SpecialPlayer.ApplyDelta))
+    override def apply(delta: Delta): LargestArmyPlayer = LargestArmyPlayer(SpecialPlayer.applyDelta(delta))
   }
 
   object LargestArmyPlayer {
-    implicit val initLargestArmyPlayer: StateInitializer[LargestArmyPlayer] = new StateInitializer[LargestArmyPlayer] {
+    given initLargestArmyPlayer: StateInitializer[LargestArmyPlayer] with
       override def apply(): LargestArmyPlayer = LargestArmyPlayer(None)
-    }
   }
 
   case class PlayerArmyCount(m: PlayerMap[Int]) extends GameState[PlayerArmyCount] {
     type Delta = SpecialCounts.Increment
 
-    override def apply(delta: Delta): PlayerArmyCount = PlayerArmyCount(SpecialCounts.ApplyDelta.increment.apply((delta, m)))
+    override def apply(delta: Delta): PlayerArmyCount = PlayerArmyCount(SpecialCounts.applyIncrement(delta, m))
   }
 
   object PlayerArmyCount {
-    implicit def initArmyCount(implicit playerIds: PlayerIds): StateInitializer[PlayerArmyCount] = new StateInitializer[PlayerArmyCount] {
+    given initArmyCount(using playerIds: PlayerIds): StateInitializer[PlayerArmyCount] with
       override def apply(): PlayerArmyCount = PlayerArmyCount(playerIds.players.map(_ -> 0).toMap)
-    }
   }
 }

@@ -1,8 +1,7 @@
 package soc.base.actions
 
 import game.Delta.DeltaGen
-import game.{Delta, DeltaList}
-import shapeless.{:+:, CNil}
+import game.{Delta, DeltaList, :+:, CNil}
 import soc.base.state.SpecialPlayer
 import soc.core.state.PlayerPoints
 
@@ -21,7 +20,7 @@ package object special {
       }
   }
 
-  def specialPlayerDelta[SP](currentSpecialPlayer: Option[Int], updatedSpecialPlayer: Option[Int])(implicit pGen: DeltaGen[SP, SpecialPlayer.Delta]): DeltaList[Delta[PlayerPoints] :+: Delta[SP] :+: CNil] = {
+  def specialPlayerDelta[SP](currentSpecialPlayer: Option[Int], updatedSpecialPlayer: Option[Int])(using pGen: DeltaGen[SP, SpecialPlayer.Delta]): DeltaList[Delta[PlayerPoints] :+: Delta[SP] :+: CNil] = {
     (currentSpecialPlayer, updatedSpecialPlayer) match {
       case (None, None)       =>
         DeltaList()

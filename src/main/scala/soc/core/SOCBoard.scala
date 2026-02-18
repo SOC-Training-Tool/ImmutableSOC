@@ -1,7 +1,5 @@
 package soc.core
 
-import shapeless.Coproduct
-
 case class Vertex(node: Int)
 
 case class Edge(v1: Vertex, v2: Vertex) {
@@ -29,7 +27,7 @@ sealed trait Hex[+Res] {
   val getResource: Option[Res]
   val getNumber: Option[Int]
 }
-case class ResourceHex[Res <: Coproduct](resource: Res, number: Int) extends Hex[Res] {
+case class ResourceHex[Res](resource: Res, number: Int) extends Hex[Res] {
   override val getResourceAndNumber: Option[(Res, Int)] = Some((resource, number))
   override val getResource: Option[Res] = Some(resource)
   override val getNumber: Option[Int] = Some(number)
@@ -52,17 +50,17 @@ trait SOCBoard[Res, T] {
 
 object SOCBoard {
 
-  implicit class SOCBoardOps[Res, T](t: T)(implicit board: SOCBoard[Res, T]) {
+  extension [Res, T](t: T)(using board: SOCBoard[Res, T]) {
 
-    lazy val hexesWithNodes: Seq[BoardHex[Res]] = board.hexesWithNodes(t)
+    def hexesWithNodes: Seq[BoardHex[Res]] = board.hexesWithNodes(t)
 
-    lazy val vertices: Seq[Vertex] = hexesWithNodes.flatMap(_.vertices).distinct
-    lazy val edges: Seq[Edge] = hexesWithNodes.flatMap { hex =>
+    def vertices: Seq[Vertex] = hexesWithNodes.flatMap(_.vertices).distinct
+    def edges: Seq[Edge] = hexesWithNodes.flatMap { hex =>
       val vertices = hex.vertices
       vertices.zip(vertices.tail ::: List(vertices.head)).map { case (v1, v2) => Edge(v1, v2) }
     }.distinct
 
-    lazy val edgesFromVertex: Map[Vertex, Seq[Edge]] = vertices.map { vertex =>
+    def edgesFromVertex: Map[Vertex, Seq[Edge]] = vertices.map { vertex =>
       vertex -> edges.flatMap {
         case e @ Edge(`vertex`, _) => Seq(e)
         case e @ Edge(_, `vertex`) => Seq(e)
@@ -70,7 +68,7 @@ object SOCBoard {
       }
     }.toMap
 
-    lazy val neighboringVertices: Map[Vertex, Seq[Vertex]] = vertices.map { vertex =>
+    def neighboringVertices: Map[Vertex, Seq[Vertex]] = vertices.map { vertex =>
       vertex -> edgesFromVertex(vertex).flatMap {
         case Edge(`vertex`, v) => Seq(v)
         case Edge(v, `vertex`) => Seq(v)
@@ -78,16 +76,14 @@ object SOCBoard {
       }
     }.toMap.view.mapValues(_.distinct).toMap
 
-    lazy val numberHexes: Map[Int, Seq[BoardHex[Res]]] = hexesWithNodes
+    def numberHexes: Map[Int, Seq[BoardHex[Res]]] = hexesWithNodes
       .flatMap(h => h.hex.getNumber.map(_ -> h))
       .groupBy(_._1)
       .view.mapValues(_.map(_._2))
       .toMap
 
-    lazy val hexesForVertex: Map[Vertex, Seq[BoardHex[Res]]] = vertices.map { v =>
+    def hexesForVertex: Map[Vertex, Seq[BoardHex[Res]]] = vertices.map { v =>
       v -> hexesWithNodes.filter(_.vertices.contains(v))
     }.toMap
   }
-
-
 }

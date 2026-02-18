@@ -1,0 +1,12 @@
+[error] -- Error: /Users/gregoryberkman/SOC/ImmutableSOC/game/src/main/scala/game/ImmutableGame.scala:133:52 
+[error] 133 |        new ImmutableGameBuilder(actions, ga.andThen(gAction))
+[error]     |                                          ^^^^^^^^^^^^^^^^^^^
+[error]     |                                          Expected tuple type, got: S2
+[error]     |---------------------------------------------------------------------------
+[error]     |Inline stack trace
+[error]     |- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+[error]     |This location contains code that was inlined from ImmutableGame.scala:133
+[error]  26 |    util.GameActionCompositionMacro.andThenMacro(this, ga)
+[error]     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[error]      ---------------------------------------------------------------------------
+[error] one error found

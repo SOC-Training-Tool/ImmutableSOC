@@ -1,16 +1,14 @@
 package soc.base.actions.build
 
 import game.Delta.DeltaGen
-import game.{DeltaList, GameAction, GameState, InventorySet}
-import shapeless.Coproduct
-import shapeless.ops.coproduct
+import game.{DeltaList, GameAction, GameState, InventorySet, CoproductInject}
 import soc.core.Transactions.PerfectInfo
 import soc.core.state.{Bank, BoardBuildingState, PlayerPoints, VertexBuildingState}
 import soc.core.{BuildCityMove, City, Transactions}
 
 object BuildCityAction {
 
-  def apply[II, Inv[_], VB <: Coproduct](cost: InventorySet[II, Int])(implicit gen: DeltaGen[Inv[II], PerfectInfo[II]], inject: coproduct.Inject[VB, City.type]) =
+  def apply[II, Inv[_], VB](cost: InventorySet[II, Int])(using gen: DeltaGen[Inv[II], PerfectInfo[II]], inject: CoproductInject[VB, City.type]) =
     GameAction.apply[BuildCityMove] { move =>
       DeltaList()
         .add[VertexBuildingState[VB]](BoardBuildingState.RemoveBuilding(move.vertex))
@@ -22,4 +20,3 @@ object BuildCityAction {
         .toList
     }
 }
-

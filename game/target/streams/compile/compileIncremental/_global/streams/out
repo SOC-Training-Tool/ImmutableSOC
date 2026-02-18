@@ -1,0 +1,6 @@
+[debug] [zinc] IncrementalCompile -----------
+[debug] IncrementalCompile.incrementalCompile
+[debug] previous = Stamps for: 147 products, 13 sources, 2 libraries
+[debug] current source = Set(${BASE}/game/src/main/scala/util/MapOps.scala, ${BASE}/game/src/main/scala/util/CombinationMapIterator.scala, ${BASE}/game/src/main/scala/game/GameState.scala, ${BASE}/game/src/main/scala/game/InventorySet.scala, ${BASE}/game/src/main/scala/util/MapReverse.scala, ${BASE}/game/src/main/scala/util/GameActionCompositionMacro.scala, ${BASE}/game/src/main/scala/game/tupleops.scala, ${BASE}/game/src/main/scala/game/GameAction.scala, ${BASE}/game/src/main/scala/game/coproduct.scala, ${BASE}/game/src/main/scala/game/ImmutableGame.scala, ${BASE}/game/src/main/scala/util/DependsOn.scala, ${BASE}/game/src/main/scala/game/GameMove.scala, ${BASE}/game/src/main/scala/game/DeltaList.scala)
+[debug] > initialChanges = InitialChanges(Changes(added = Set(), removed = Set(), changed = Set(), unmodified = ...),Set(),Set(),API Changes: Set())
+[debug] No changes

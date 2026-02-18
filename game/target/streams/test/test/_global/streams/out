@@ -1,0 +1,11 @@
+[debug] Running TaskDef(game.ImmutableGameSpec, org.scalatest.tools.Framework$$anon$1@6036a0f3, false, [SuiteSelector])
+[info] ImmutableGameSpec:
+[info] Immutable Game
+[info] - should update the state on action
+[info] Run completed in 531 milliseconds.
+[info] Total number of tests run: 1
+[info] Suites: completed 1, aborted 0
+[info] Tests: succeeded 1, failed 0, canceled 0, ignored 0, pending 0
+[info] All tests passed.
+[debug] Passed tests:
+[debug] 	game.ImmutableGameSpec

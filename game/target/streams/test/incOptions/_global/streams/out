@@ -1,0 +1,47 @@
+[debug] Created transactional ClassFileManager with tempDir = /Users/gregoryberkman/SOC/ImmutableSOC/game/target/scala-2.13/test-classes.bak
+[debug] About to delete class files:
+[debug] 	ImmutableGameSpec$$anon$2.class
+[debug] 	ImmutableGameSpec$Bar.class
+[debug] 	ImmutableGameSpec$M2$.class
+[debug] 	ImmutableGameSpec$M1$.class
+[debug] 	ImmutableGameSpec$Foo$.class
+[debug] 	ImmutableGameSpec$M2.class
+[debug] 	ImmutableGameSpec$Bar$.class
+[debug] 	ImmutableGameSpec$Foo.class
+[debug] 	ImmutableGameSpec$M1.class
+[debug] 	ImmutableGameSpec$$anon$2$$anon$3.class
+[debug] 	ImmutableGameSpec.class
+[debug] 	ImmutableGameSpec$$anon$1.class
+[debug] 	ImmutableGameSpec$MoveCount$.class
+[debug] 	ImmutableGameSpec$MoveCount.class
+[debug] We backup class files:
+[debug] 	ImmutableGameSpec$$anon$2.class
+[debug] 	ImmutableGameSpec$Bar.class
+[debug] 	ImmutableGameSpec$M2$.class
+[debug] 	ImmutableGameSpec$M1$.class
+[debug] 	ImmutableGameSpec$Foo$.class
+[debug] 	ImmutableGameSpec$M2.class
+[debug] 	ImmutableGameSpec$Bar$.class
+[debug] 	ImmutableGameSpec$Foo.class
+[debug] 	ImmutableGameSpec$M1.class
+[debug] 	ImmutableGameSpec$$anon$2$$anon$3.class
+[debug] 	ImmutableGameSpec.class
+[debug] 	ImmutableGameSpec$$anon$1.class
+[debug] 	ImmutableGameSpec$MoveCount$.class
+[debug] 	ImmutableGameSpec$MoveCount.class
+[debug] Registering generated classes:
+[debug] 	ImmutableGameSpec$$anon$2.class
+[debug] 	ImmutableGameSpec$Bar.class
+[debug] 	ImmutableGameSpec$M2$.class
+[debug] 	ImmutableGameSpec$M1$.class
+[debug] 	ImmutableGameSpec$Foo$.class
+[debug] 	ImmutableGameSpec$M2.class
+[debug] 	ImmutableGameSpec$Bar$.class
+[debug] 	ImmutableGameSpec$Foo.class
+[debug] 	ImmutableGameSpec$M1.class
+[debug] 	ImmutableGameSpec$$anon$2$$anon$3.class
+[debug] 	ImmutableGameSpec.class
+[debug] 	ImmutableGameSpec$$anon$1.class
+[debug] 	ImmutableGameSpec$MoveCount$.class
+[debug] 	ImmutableGameSpec$MoveCount.class
+[debug] Removing the temporary directory used for backing up class files: /Users/gregoryberkman/SOC/ImmutableSOC/game/target/scala-2.13/test-classes.bak

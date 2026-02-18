@@ -1,16 +1,15 @@
 package soc.base.actions.special
 
-import game.{DeltaList, GameAction}
-import shapeless.{::, HNil}
+import game.{DeltaList, GameAction, tupleSelect}
 import soc.base.state.{LargestArmyPlayer, PlayerArmyCount, SpecialCounts}
 
 object LargestArmyExtension {
 
   def apply(minCount: Int = 3) = {
-    GameAction.fromState[Int, LargestArmyPlayer :: PlayerArmyCount :: HNil] { case (player, state) =>
-      val largestArmyPlayer = state.select[LargestArmyPlayer].player
+    GameAction.fromState[Int, (LargestArmyPlayer, PlayerArmyCount)] { case (player, state) =>
+      val largestArmyPlayer = tupleSelect[(LargestArmyPlayer, PlayerArmyCount), LargestArmyPlayer](state).player
       val updatedArmyCount  = {
-        val currArmySize = state.select[PlayerArmyCount].m
+        val currArmySize = tupleSelect[(LargestArmyPlayer, PlayerArmyCount), PlayerArmyCount](state).m
         PlayerArmyCount(currArmySize + (player -> (currArmySize.getOrElse(player, 0) + 1)))
       }
       val updatedArmyPlayer = updatedSpecialPlayer(minCount, largestArmyPlayer, updatedArmyCount.m)

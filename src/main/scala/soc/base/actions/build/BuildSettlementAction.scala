@@ -1,15 +1,13 @@
 package soc.base.actions.build
 
 import game.Delta.DeltaGen
-import game.{Delta, DeltaList, GameAction, GameState, InventorySet}
-import shapeless.{:+:, CNil, Coproduct, HNil}
-import shapeless.ops.coproduct
+import game.{Delta, DeltaList, GameAction, GameState, InventorySet, :+:, CNil, CoproductInject}
 import soc.core.state.{Bank, BoardBuildingState, PlayerPoints, VertexBuildingState}
 import soc.core.{BuildSettlementMove, Settlement, Transactions, Vertex}
 
 object BuildSettlementAction {
 
-  def apply[II, Inv[_], VB <: Coproduct](cost: InventorySet[II, Int])(implicit gen: DeltaGen[Inv[II], Transactions.PerfectInfo[II]], inject: coproduct.Inject[VB, Settlement.type]): GameAction[BuildSettlementMove, HNil, Delta[PlayerPoints] :+: Delta[Bank[II]] :+: Delta[Inv[II]] :+: Delta[VertexBuildingState[VB]] :+: CNil] =
+  def apply[II, Inv[_], VB](cost: InventorySet[II, Int])(using gen: DeltaGen[Inv[II], Transactions.PerfectInfo[II]], inject: CoproductInject[VB, Settlement.type]): GameAction[BuildSettlementMove, EmptyTuple, Delta[PlayerPoints] :+: Delta[Bank[II]] :+: Delta[Inv[II]] :+: Delta[VertexBuildingState[VB]] :+: CNil] =
     GameAction.apply[BuildSettlementMove] { move =>
       DeltaList()
         .add[VertexBuildingState[VB]](BoardBuildingState.add(move.vertex, Settlement, move.player))

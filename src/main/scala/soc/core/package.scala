@@ -1,9 +1,9 @@
 package soc
 
 
-import game.InventorySet
-import shapeless.{:+:, CNil, Coproduct}
-import soc.core.Resources._
+import game.{:+:, CNil, Inl, Inr, CoproductInject, InventorySet}
+import game.inject
+
 package object core {
 
   type PlayerMap[A] = Map[Int, A]
@@ -25,25 +25,27 @@ package object core {
   type Port = Misc.type :+: Resource
 
   object Resources {
-    val WOOD: Resource = Coproduct[Resource](Wood)
-    val BRICK: Resource = Coproduct[Resource](Brick)
-    val SHEEP: Resource = Coproduct[Resource](Sheep)
-    val WHEAT: Resource = Coproduct[Resource](Wheat)
-    val ORE: Resource = Coproduct[Resource](Ore)
+    val WOOD: Resource = Wood.inject[Resource]
+    val BRICK: Resource = Brick.inject[Resource]
+    val SHEEP: Resource = Sheep.inject[Resource]
+    val WHEAT: Resource = Wheat.inject[Resource]
+    val ORE: Resource = Ore.inject[Resource]
 
     val all: Seq[Resource] = WOOD :: BRICK :: SHEEP :: WHEAT :: ORE :: Nil
   }
 
   object Ports {
-    val WOOD: Port = Coproduct[Port](Wood)
-    val BRICK: Port = Coproduct[Port](Brick)
-    val SHEEP: Port = Coproduct[Port](Sheep)
-    val WHEAT: Port = Coproduct[Port](Wheat)
-    val ORE: Port = Coproduct[Port](Ore)
-    val MISC: Port = Coproduct[Port](Misc)
+    val WOOD: Port = Wood.inject[Port]
+    val BRICK: Port = Brick.inject[Port]
+    val SHEEP: Port = Sheep.inject[Port]
+    val WHEAT: Port = Wheat.inject[Port]
+    val ORE: Port = Ore.inject[Port]
+    val MISC: Port = Misc.inject[Port]
 
     val all: Seq[Port] = WOOD :: BRICK :: SHEEP :: WHEAT :: ORE :: MISC :: Nil
   }
+
+  import Resources._
 
   object ResourceSet {
     type ResourceSet[T] = InventorySet[Resource, T]
@@ -76,21 +78,17 @@ package object core {
 
   object VertexBuilding {
 
-    val SETTLEMENT: VertexBuilding = Coproduct[VertexBuilding](Settlement)
-    val CITY: VertexBuilding = Coproduct[VertexBuilding](City)
+    val SETTLEMENT: VertexBuilding = Settlement.inject[VertexBuilding]
+    val CITY: VertexBuilding = City.inject[VertexBuilding]
 
-    implicit val settlementValue: VertexBuildingValue[Settlement.type] = new VertexBuildingValue[Settlement.type] {
-      override def apply: Int = 1
-    }
+    given settlementValue: VertexBuildingValue[Settlement.type] with
+      def apply: Int = 1
 
-    implicit val cityValue: VertexBuildingValue[City.type] = new VertexBuildingValue[City.type] {
-      override def apply: Int = 2
-    }
+    given cityValue: VertexBuildingValue[City.type] with
+      def apply: Int = 2
   }
 
   object EdgeBuilding {
-    val ROAD = Coproduct[EdgeBuilding](Road)
+    val ROAD: EdgeBuilding = Road.inject[EdgeBuilding]
   }
-
-
 }

@@ -1,14 +1,13 @@
 package soc.core.actions
 
 import game.Delta.DeltaGen
-import game.{Delta, DeltaList, GameAction, GameState}
-import shapeless.{:+:, CNil, HNil}
+import game.{Delta, DeltaList, GameAction, GameState, :+:, CNil}
 import soc.core.TradeMove
 import soc.core.Transactions.{Gain, Lose, PerfectInfo}
 
 object TradeAction {
 
-  def apply[II, INV[_]]()(implicit gen: DeltaGen[INV[II], PerfectInfo[II]]): GameAction[TradeMove[II], HNil, Delta[INV[II]] :+: CNil] =
+  def apply[II, INV[_]]()(using gen: DeltaGen[INV[II], PerfectInfo[II]]): GameAction[TradeMove[II], EmptyTuple, Delta[INV[II]] :+: CNil] =
     GameAction.apply[TradeMove[II]] { move =>
       DeltaList()
       .add[INV[II]](Lose(move.player, move.give))
