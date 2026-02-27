@@ -1,0 +1,11 @@
+[error] /Users/gregoryberkman/SOC/ImmutableSOC/game/src/main/scala/util/BuildWithMacro.scala:224:27: type mismatch;
+[error]  found   : c.universe.TermName
+[error]  required: c.universe.Tree
+[error]               $rawD.map(($elem) => $embedRaw) ++ $gaD.map(($elem) => $embedGa)
+[error]                           ^
+[error] /Users/gregoryberkman/SOC/ImmutableSOC/game/src/main/scala/util/BuildWithMacro.scala:224:61: type mismatch;
+[error]  found   : c.universe.TermName
+[error]  required: c.universe.Tree
+[error]               $rawD.map(($elem) => $embedRaw) ++ $gaD.map(($elem) => $embedGa)
+[error]                                                             ^
+[error] two errors found

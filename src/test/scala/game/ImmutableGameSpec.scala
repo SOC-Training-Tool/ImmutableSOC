@@ -37,8 +37,11 @@ class ImmutableGameSpec extends FunSpec with Matchers {
       .toList
   }
 
-  val builder = ImmutableGame.apply[M1 :+: M2 :+: CNil]().addGlobalAction(MoveCountExtension())
-  val game    = builder.build()
+  type MOVES = M1 :+: M2 :+: CNil
+  type STATE = Foo :: Bar :: MoveCount :: HNil
+
+  val builder = ImmutableGame.apply[MOVES]().addGlobalAction(MoveCountExtension())
+  val game    = builder.buildWith[MOVES, STATE]()
 
   describe("Immutable Game") {
 

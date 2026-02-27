@@ -2,9 +2,8 @@ package soc.base
 
 import game.Delta.DeltaGen
 import game.ImmutableGame.AddGlobalActionPoly
-import game.utils.ExtractState.Aux
-import game.utils.{ExtractState, FetchActions}
-import game.{Delta, FullState, GameAction, ImmutableGame, ImmutableGameBuilder}
+import game.utils.FetchActions
+import game.{Delta, GameAction, ImmutableGame, ImmutableGameBuilder}
 import shapeless.{:+:, ::, CNil, HNil}
 import soc.base.DevelopmentCards._
 import soc.base.actions._
@@ -84,7 +83,7 @@ object BaseGame {
 
     val builder = ImmutableGame.apply[MOVES]().addGlobalAction(MoveCountExtension())
     //val builder = ImmutableGame.apply[BuildSettlementMove :+: BuildCityMove :+: BuildRoadMove :+: CNil]().addGlobalAction(MoveCountExtension())
-    val game = builder.build()
+    val game = builder.buildWith[MOVES, STATE]()
 
   }
 
@@ -104,7 +103,8 @@ object BaseGame {
     type MOVES = RobberMoveResult[Resource] :+: BuyDevelopmentCardMoveResult[DevelopmentCard] :+: PlayPointMove :+: PlayKnightResult[Resource] :+: super.CORE_MOVES
     type STATE = RobberLocation :: PublicInventories[Resource] :: PublicDevCardInv[DevelopmentCard] :: DevelopmentCardDeckSize :: state.Bank[Resource] :: state.Turn :: state.PlayerPoints :: LargestArmyPlayer :: PlayerArmyCount :: VertexBuildingState[BaseVertexBuilding] :: SOCRoadLengths :: SOCLongestRoadPlayer :: BaseBoard[Resource] :: EdgeBuildingState[BaseEdgeBuilding] :: state.MoveCount :: HNil
 
-    //val game = ImmutableGame.apply[MOVES]().addGlobalAction(MoveCountExtension()).build().align[MOVES, STATE]()
+    val builder = ImmutableGame.apply[MOVES]().addGlobalAction(MoveCountExtension())
+    val game = builder.buildWith[MOVES, STATE]()
   }
 
   type PerfectInfoMoves = PerfectInfoGame.MOVES

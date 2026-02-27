@@ -4,10 +4,11 @@ import game.Delta.ExtractState
 import game.MergeState.Aux
 import shapeless.ops.{coproduct, hlist}
 import shapeless.ops.hlist.{SelectAll, Union}
-import shapeless.{:+:, CNil, Coproduct, HList, HNil, Poly1}
+import shapeless.{:+:, ::, CNil, Coproduct, HList, HNil, Poly1}
 import util.opext.CoproductUnion
 
 class GameAction[MOVE, S, DELTA] (val actions: List[(MOVE, S) => List[DELTA]]) {
+
 
   def liftState[S2](implicit lift: Lift[S, S2]): GameAction[MOVE, S2, DELTA] =
     new GameAction[MOVE, S2, DELTA](actions.map(f => Function.untupled(f.tupled.compose[(MOVE, S2)] { case (m, s) => (m, lift.apply(s))} )))
@@ -73,37 +74,6 @@ object GameAction {
   }
 }
 
-//trait CollectActionState[MOVES <: Coproduct] {
-//  type STATE <: HList
-//  type DELTA <: Coproduct
-//}
-
-//object CollectActionState {
-//
-//  type Aux[MOVES <: Coproduct, S <: HList, D <: Coproduct] = CollectActionState[MOVES] {
-//    type STATE = S
-//    type DELTA = D
-//  }
-//
-//  def apply[MOVES <: Coproduct](implicit c: CollectActionState[MOVES]): Aux[MOVES, c.STATE, c.DELTA] = c
-//
-//  implicit def recur[M, S <: HList, D <: Coproduct, T <: Coproduct, DS <: HList, NextS <: HList, NextD <: Coproduct, UOut <: HList](implicit
-//    gaAction: GAction.Aux[M, S, D],
-//    next: CollectActionState.Aux[T, NextS, NextD],
-//    extract: ExtractState.Aux[D, DS],
-//    un1: hlist.Union.Aux[S, DS, UOut],
-//    un2: hlist.Union[UOut, NextS],
-//    un3: CoproductUnion[D, NextD]): Aux[M :+: T, un2.Out, un3.Out] = new CollectActionState[M :+: T] {
-//    type STATE = un2.Out
-//    type DELTA = un3.Out
-//  }
-//
-//  implicit val cnil: Aux[CNil, HNil, CNil] = new CollectActionState[CNil] {
-//    type STATE = HNil
-//    type DELTA = CNil
-//  }
-//}
-
 trait MergeState[S1, S2] { self =>
   type Out
 
@@ -156,20 +126,6 @@ object MergeDelta {
 //  }
 }
 
-trait FullState[A] {
-  type Out
-}
-
-object FullState {
-  type Aux[A, Out0] = FullState[A] { type Out = Out0}
-
-  def apply[A](implicit fs: FullState[A]): Aux[A, fs.Out] = fs
-
-  implicit def gameAction[M, S <: HList, DL <: Coproduct, DOut <: HList](implicit extractState: ExtractState.Aux[DL, DOut], un: Union[S, DOut]): Aux[GameAction[M, S, DL], un.Out] = new FullState[GameAction[M, S, DL]] {
-    type Out = un.Out
-  }
-}
-
 trait Lift[A, B] extends (B => A)
 
 object Lift {
@@ -178,6 +134,22 @@ object Lift {
 
   implicit def hlist[A <: HList, B <: HList](implicit sa: shapeless.ops.hlist.SelectAll[B, A]): Lift[A, B] = sa.apply
   implicit def coproduct[A <: Coproduct, B <: Coproduct](implicit ba: shapeless.ops.coproduct.Basis[A, B]): Lift[A, B] = _.embed[A]
+}
+
+trait DeltaState[S] {
+  type Out
+}
+
+object DeltaState {
+  type Aux[S, Out0] = DeltaState[S] { type Out = Out0 }
+
+  def apply[S](implicit ds: DeltaState[S]): Aux[S, ds.Out] = ds
+
+  implicit def hlist[H, T <: HList, Out0 <: Coproduct](implicit next: Aux[T, Out0]): Aux[H :: T, Delta[H] :+: Out0] = new DeltaState[H :: T] {
+    type Out = Delta[H] :+: Out0
+  }
+
+  implicit val hnil: Aux[HNil, CNil] = new DeltaState[HNil] { type Out = CNil }
 
 
 }

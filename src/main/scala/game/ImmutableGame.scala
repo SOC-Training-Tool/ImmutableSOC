@@ -1,10 +1,9 @@
 package game
 
-import game.Delta.ApplyDeltas
 import game.ImmutableGame.{AddGlobalActionPoly, TypeBox}
+import scala.language.experimental.macros
 import shapeless.ops.{coproduct, hlist}
 import shapeless.{:+:, ::, CNil, Coproduct, Generic, HList, HNil, Poly0, Poly1}
-import util.opext.{CoproductDistinct, CoproductUnion, HListDistinct}
 
 trait ImmutableGame[MOVES <: Coproduct, STATE <: HList] {
   self =>
@@ -43,7 +42,7 @@ trait ImmutableGame[MOVES <: Coproduct, STATE <: HList] {
   //  }
 }
 
-class ImmutableGameBuilder[ACTIONS <: HList, GS](actions: ACTIONS, globalActions: GS) {
+class ImmutableGameBuilder[ACTIONS <: HList, GS](val actions: ACTIONS, val globalActions: GS) {
 
   def addAction[A](action: A)(implicit ev: A <:< GameAction[Any, Any, Any]) = new ImmutableGameBuilder[A :: ACTIONS, GS](action :: actions, globalActions)
 
@@ -59,32 +58,18 @@ class ImmutableGameBuilder[ACTIONS <: HList, GS](actions: ACTIONS, globalActions
     new ImmutableGameBuilder(actions, globalActions.andThen(gAction))
   }
 
-  def build[MOVES <: Coproduct, STATE <: HList, DOut <: Coproduct, Z1 <: HList, AL <: HList, Z2 <: HList, AL2 <: HList, Z3 <: Coproduct]()(
-    implicit
-    zipper1: hlist.ZipConst.Aux[GS, ACTIONS, Z1],
-    mapper: hlist.Mapper.Aux[AddGlobalActionPoly.type, Z1, AL],
-    ea: utils.ExtractMoves.Aux[AL, MOVES],
-    es: utils.ExtractState.Aux[AL, STATE],
-    ed: utils.ExtractDelta.Aux[AL, DOut],
-    zipper2: hlist.ZipConst.Aux[(TypeBox[STATE], TypeBox[DOut]), AL, Z2],
-    liftAll: hlist.Mapper.Aux[utils.LiftAllPoly.type, Z2, AL2],
-    zipper3: coproduct.ZipWith.Aux[AL2, MOVES, Z3],
-    onMove: coproduct.Folder.Aux[utils.ApplyMovePoly.type, Z3, List[STATE => List[DOut]]],
-    applyDelta: coproduct.LeftFolder.Aux[DOut, STATE, ApplyDeltas.type, STATE]
-  ): ImmutableGame.Aux[MOVES, STATE, DOut] = new ImmutableGame[MOVES, STATE] {
-    override type DELTA = DOut
+  def buildWith[MOVES <: Coproduct, STATE <: HList]: BuildWithApply[MOVES, STATE, ACTIONS, GS] =
+    new BuildWithApply[MOVES, STATE, ACTIONS, GS](this)
 
-    override def applyMove(move: MOVES, state: STATE): (List[DELTA], STATE) = {
-      val allActions = mapper.apply(actions.zipConst(globalActions))
-      val unifiedActions = liftAll.apply(allActions.zipConst((TypeBox[STATE](), TypeBox[DOut]())))
-      val stateFuncs: List[STATE => List[DOut]] = onMove.apply(move.zipWith(unifiedActions))
-      stateFuncs.foldLeft[(STATE, List[DOut])]((state, Nil)) {
-        case ((state, deltas), f) =>
-          val dl: List[DOut] = f(state)
-          val s2: STATE   = dl.foldLeft(state) { case (s, d) => applyDelta.apply(d, s) }
-          (s2, deltas ++ dl)
-      }.swap
-    }
+  // ACTIONS and GS are explicit type params so the macro can read them
+  // directly from prefixTpe.typeArgs without inner-class path gymnastics.
+  final class BuildWithApply[MOVES <: Coproduct, STATE <: HList, ACTIONS2 <: HList, GS2](
+    val _builder: ImmutableGameBuilder[ACTIONS2, GS2]
+  ) {
+    // Only DeltaState remains as an implicit – it resolves D and propagates
+    // the concrete type to callers.  Everything else is handled by the macro.
+    def apply[D <: Coproduct]()(implicit ds: DeltaState.Aux[STATE, D]): ImmutableGame[MOVES, STATE] =
+      macro util.BuildWithMacro.impl
   }
 }
 
@@ -241,54 +226,6 @@ object utils {
     }
   }
 
-  trait ExtractMoves[L <: HList] {
-    type Out <: Coproduct
-  }
-
-  object ExtractMoves {
-    type Aux[L <: HList, Out0 <: Coproduct] = ExtractMoves[L] { type Out = Out0 }
-
-    def apply[L <: HList](implicit em: ExtractMoves[L]): Aux[L, em.Out] = em
-
-    implicit def recur[H, S, D, T <: HList](implicit next: ExtractMoves[T]): Aux[GameAction[H, S, D] :: T, H :+: next.Out] = new ExtractMoves[GameAction[H, S, D] :: T] {
-      type Out = H :+: next.Out
-    }
-
-    implicit val hnil: Aux[HNil, CNil] =  new ExtractMoves[HNil] { type Out = CNil }
-  }
-
-  trait ExtractState[L <: HList] {
-    type Out <: HList
-  }
-
-  object ExtractState {
-    type Aux[L <: HList, Out0 <: HList] = ExtractState[L] { type Out = Out0}
-
-    def apply[L <: HList](implicit es: ExtractState[L]): Aux[L, es.Out] = es
-
-    implicit def recur[H, S, D, T <: HList, FS <: HList, OutS <: HList](implicit fullState: FullState.Aux[GameAction[H, S, D], FS], next: ExtractState.Aux[T, OutS], un: hlist.Union[FS, OutS]): Aux[GameAction[H, S, D] :: T, un.Out] = new ExtractState[GameAction[H, S, D] :: T] {
-      override type Out = un.Out
-    }
-
-    implicit val hnil: Aux[HNil, HNil] = new ExtractState[HNil] { type Out = HNil}
-  }
-
-  trait ExtractDelta[L <: HList] {
-    type Out <: Coproduct
-  }
-
-  object ExtractDelta {
-    type Aux[L <: HList, Out0 <: Coproduct] = ExtractDelta[L] { type Out = Out0}
-
-    def apply[L <: HList](implicit ed: ExtractDelta[L]): Aux[L, ed.Out] = ed
-
-    implicit def recur[H, S, D <: Coproduct, T <: HList, ND <: Coproduct](implicit next: Aux[T, ND], un: CoproductUnion[D, ND]): Aux[GameAction[H, S, D] :: T, un.Out] = new ExtractDelta[GameAction[H, S, D] :: T] {
-      type Out = un.Out
-    }
-
-    implicit val hnil: Aux[HNil, CNil] = new ExtractDelta[HNil] { type Out = CNil}
-  }
-
   object LiftAllPoly extends Poly1 {
 
     implicit def onAction[M, S, D, STATE, DELTA](implicit liftS: Lift[S, STATE], liftD: Lift[DELTA, D]): Case.Aux[(GameAction[M, S, D], (TypeBox[STATE], TypeBox[DELTA])), GameAction[M, STATE, DELTA]] = at[(GameAction[M, S, D], (TypeBox[STATE], TypeBox[DELTA]))] { case (action, _) =>
@@ -301,4 +238,5 @@ object utils {
       at[(M, GameAction[M, STATE, DELTA])] { case (move, action) => action.actions.map { f => f(move, _) }
     }
   }
+
 }
