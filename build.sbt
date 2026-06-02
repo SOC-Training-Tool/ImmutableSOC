@@ -1,38 +1,21 @@
 
-val shapelessDep = "com.chuusai" %% "shapeless" % "2.3.12"
-
-lazy val game = project.in(file("game"))
-  .settings(
-    name         := "game",
-    scalaVersion := "2.13.15",
-    libraryDependencies ++= Seq(
-      "org.scala-lang" % "scala-reflect" % scalaVersion.value,
-      shapelessDep
-    ),
-    scalacOptions += "-J-Xss4m"
-  )
-
 lazy val root = project.in(file("."))
-  .dependsOn(game)
   .settings(
     name         := "ImmutableSOC",
     organization := "io.github.soc-training-tool",
-    scalaVersion := "2.13.15",
+    scalaVersion := "3.5.2",
     description  := "Library for Immutable Settlers of Catan.",
     version      := "0.1.0",
 
     libraryDependencies ++= Seq(
-      "org.scalactic" %% "scalactic" % "3.0.8",
-      "org.scalatest" %% "scalatest" % "3.0.8" % "test",
-      shapelessDep
+      "org.scalactic" %% "scalactic" % "3.2.19",
+      "org.scalatest" %% "scalatest" % "3.2.19" % "test",
     ),
 
     Test / publishArtifact := true,
 
-    fork in run       := true,
-    javaOptions in run += "-Xmx2G",
-    scalacOptions     += "-Xlog-implicits",
-    scalacOptions     += "-J-Xss4m",
+    run / fork       := true,
+    run / javaOptions += "-Xmx2G",
 
     publishTo      := Some("GitHub Package Registry" at "https://maven.pkg.github.com/SOC-Training-Tool/ImmutableSOC"),
     publishMavenStyle := true,

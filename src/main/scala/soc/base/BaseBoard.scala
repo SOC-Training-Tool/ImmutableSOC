@@ -3,12 +3,11 @@ package soc.base
 import game.GameState
 import soc.core.{BoardHex, Hex, Port, Resource, SOCBoard, Vertex}
 
-case class BaseBoard[Res](hexes: List[Hex[Res]], ports: List[Port]) extends GameState[BaseBoard[Res]] {
+case class BaseBoard[Res](hexes: List[Hex[Res]], ports: List[Port]) extends GameState[BaseBoard[Res]]:
   override type Delta = Nothing
   override def apply(delta: Nothing): BaseBoard[Res] = this
-}
 
-object BaseBoard {
+object BaseBoard:
 
   val basePortEdges = Seq((0, 1), (3, 4), (7, 8), (10, 11), (13, 14), (17, 18), (20, 21), (23, 34), (27, 28))
 
@@ -34,11 +33,8 @@ object BaseBoard {
     18 -> List(53, 48, 49, 50, 51, 52)
   )
 
-  implicit val baseBoard: SOCBoard[Resource, BaseBoard[Resource]] = (t: BaseBoard[Resource]) => {
+  given baseBoard: SOCBoard[Resource, BaseBoard[Resource]] = (t: BaseBoard[Resource]) =>
     val vertexMap = baseVertexMap.view.mapValues(_.map(Vertex)).toMap
     t.hexes.zipWithIndex.map { case (hex: Hex[Resource], node: Int) =>
       BoardHex(node, hex, vertexMap(node)) // TODO: unsafe
     }
-  }
-
-}

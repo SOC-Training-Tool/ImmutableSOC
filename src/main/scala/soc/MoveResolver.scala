@@ -1,33 +1,57 @@
 package soc
 
 import game.PerfectInfoMoveResult
-import shapeless.ops.coproduct
-import shapeless.{Coproduct, DepFn2, Poly1}
+import soc.base.*
+import soc.base.BaseGame
+import soc.base.BaseGame.*
+import soc.base.DevelopmentCards.*
 
-trait MoveResolver[Move, PerfectInfoState] extends DepFn2[Move, PerfectInfoState]
+/** Resolves a public-info move to a perfect-info move given the perfect-info state.
+ *  Moves that are already perfect-info pass through unchanged.
+ *  Moves that require state lookup (e.g. RobberMoveResult) are resolved to their
+ *  PerfectInfo equivalents.
+ */
+object MoveResolver:
 
-object MoveResolver {
+  def apply(move: PublicInfoGame.MOVES, state: PerfectInfoState): PerfectInfoGame.MOVES =
+    move match
+      // Already perfect-info moves — pass through directly
+      case m: PerfectInfoMoveResult                => m.asInstanceOf[PerfectInfoGame.MOVES]
 
-  type Aux[Move, PerfectInfoState, PerfectInfoMoveResult] = MoveResolver[Move, PerfectInfoState] {
-    type Out = PerfectInfoMoveResult
-  }
+      // Imperfect-info robber → resolve using state
+      case m: RobberMoveResult[?] =>
+        resolveRobber(m.asInstanceOf[RobberMoveResult[soc.core.Resource]], state)
 
-  object MoveResolverPoly extends Poly1 {
-    implicit def perfectInfoMove[P <: PerfectInfoMoveResult, S]: Case.Aux[(P, S), P] =
-      at[(P, S)] { case (move, _) => move }
+      // Imperfect-info buy dev card → resolve using state (deck top card)
+      case m: BuyDevelopmentCardMoveResult[?] =>
+        resolveBuyDevCard(m.asInstanceOf[BuyDevelopmentCardMoveResult[DevelopmentCard]], state)
 
-    implicit def default[M, S](implicit resolver: MoveResolver[M, S]): Case.Aux[(M, S), resolver.Out] =
-      at[(M, S)] { case (m, s) => resolver.apply(m, s) }
-  }
+      // Public knight → resolve using state
+      case m: PlayKnightResult[?] =>
+        val inner = resolveRobber(m.asInstanceOf[PlayKnightResult[soc.core.Resource]].inner, state)
+        PerfectInfoPlayKnightResult(inner)
 
-  implicit def movesCoproduct[Move <: Coproduct, PerfectInfoState, PerfectInfoMoveResult <: Coproduct, ZipOut <: Coproduct, MapOut <: Coproduct]
-  (implicit zipConst: coproduct.ZipConst.Aux[PerfectInfoState, Move, ZipOut],
-   mapper: coproduct.Mapper.Aux[MoveResolverPoly.type, ZipOut, MapOut],
-   align: coproduct.Align[MapOut, PerfectInfoMoveResult]): Aux[Move, PerfectInfoState, PerfectInfoMoveResult] =
-    new MoveResolver[Move, PerfectInfoState] {
-      override type Out = PerfectInfoMoveResult
-      override def apply(t: Move, u: PerfectInfoState): Out = {
-        t.zipConst(u).map(MoveResolverPoly).align[PerfectInfoMoveResult]
-      }
+      // All shared moves pass through (they are also in PerfectInfoGame.MOVES)
+      case m => m.asInstanceOf[PerfectInfoGame.MOVES]
+
+  private def resolveRobber(
+    m: RobberMoveResult[soc.core.Resource],
+    state: PerfectInfoState
+  ): PerfectInfoRobberMoveResult[soc.core.Resource] =
+    val steal = m.steal.map { s =>
+      val resource = s.resource.orElse(
+        state.privateInventories.m
+          .get(s.victim)
+          .flatMap(_.getTypes.headOption)
+      ).getOrElse(throw new IllegalStateException(s"Cannot resolve stolen resource for victim ${s.victim}"))
+      PlayerSteal(s.victim, resource)
     }
-}
+    PerfectInfoRobberMoveResult(m.player, m.robberHexId, steal)
+
+  private def resolveBuyDevCard(
+    m: BuyDevelopmentCardMoveResult[DevelopmentCard],
+    state: PerfectInfoState
+  ): PerfectInfoBuyDevelopmentCardMoveResult[DevelopmentCard] =
+    val card = state.developmentCardDeck.cards.headOption
+      .getOrElse(throw new IllegalStateException("Development card deck is empty"))
+    PerfectInfoBuyDevelopmentCardMoveResult(m.player, card)

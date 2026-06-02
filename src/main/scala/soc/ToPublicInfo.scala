@@ -1,30 +1,19 @@
 package soc
 
 import game.PerfectInfoMoveResult
-import shapeless.{Coproduct, Poly1}
-import shapeless.ops.coproduct
+import soc.base.BaseGame.*
 
-trait ToPublicInfo[Public, Perfect] extends shapeless.DepFn1[Perfect] {
-  override type Out = Public
-}
+/** Converts a perfect-info move to its public-info counterpart.
+ *  Moves that are already public-info pass through.
+ *  Perfect-info-specific moves (e.g. PerfectInfoRobberMoveResult) produce
+ *  their public-info equivalents using getPerspectiveResults(-1).
+ */
+object ToPublicInfo:
 
-object ToPublicInfo {
+  def apply(move: PerfectInfoGame.MOVES): PublicInfoGame.MOVES = move match
+    // Perfect-info moves with a public-info counterpart
+    case m: PerfectInfoMoveResult =>
+      m.getPerspectiveResults(Seq(-1)).head._2.asInstanceOf[PublicInfoGame.MOVES]
 
-  private object PerfectToImperfectMovesPoly extends Poly1 {
-    implicit def toPublic[P <: PerfectInfoMoveResult]: PerfectToImperfectMovesPoly.Case.Aux[P, P#PublicInfoMoveResult] = at[P](_.getPerspectiveResults(Seq(-1)).head._2)
-
-    implicit def default[Perfect, Imperfect](implicit toPublic: ToPublicInfo[Imperfect, Perfect]): Case.Aux[Perfect, Imperfect] = at[Perfect](toPublic.apply)
-
-  }
-
-  implicit def movesCoproduct[PublicInfoMoves <: Coproduct, PerfectInfoMoves <: Coproduct, MapOut <: Coproduct]
-  (implicit mapper: coproduct.Mapper.Aux[PerfectToImperfectMovesPoly.type, PerfectInfoMoves, MapOut],
-   basis: coproduct.Basis[PublicInfoMoves, MapOut]
-  ): ToPublicInfo[PublicInfoMoves, PerfectInfoMoves] =
-    new ToPublicInfo[PublicInfoMoves, PerfectInfoMoves] {
-      override def apply(perfectInfoMove: PerfectInfoMoves): PublicInfoMoves = {
-        val outCoproduct: MapOut = perfectInfoMove.map(PerfectToImperfectMovesPoly)
-        outCoproduct.embed[PublicInfoMoves]
-      }
-    }
-}
+    // Shared moves pass through directly
+    case m => m.asInstanceOf[PublicInfoGame.MOVES]

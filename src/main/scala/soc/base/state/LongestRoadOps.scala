@@ -1,11 +1,10 @@
 package soc.base.state
 
-import shapeless.Coproduct
 import soc.core.{Edge, SOCBoard, Vertex}
 import soc.core.SOCBoard.SOCBoardOps
 import soc.core.state.{EdgeBuildingState, VertexBuildingState}
 
-private[soc] class LongestRoadOps[Res, BOARD, VB <: Coproduct, EB <: Coproduct](board: BOARD, edgeBuildingMap: EdgeBuildingState[EB], vertexBuildingMap: VertexBuildingState[VB])(implicit
+private[soc] class LongestRoadOps[Res, BOARD, VB, EB](board: BOARD, edgeBuildingMap: EdgeBuildingState[EB], vertexBuildingMap: VertexBuildingState[VB])(using
     socBoard: SOCBoard[Res, BOARD]
 ) {
 
@@ -18,7 +17,7 @@ private[soc] class LongestRoadOps[Res, BOARD, VB <: Coproduct, EB <: Coproduct](
       case (edge, building) if building.player == playerId => Seq(edge)
       case _                                               => Nil
     }
-    calcLongestRoadLength(playerId, edges: _*)
+    calcLongestRoadLength(playerId, edges*)
   }
 
   def calcLongestRoadLength(playerId: Int, roads: Edge*): Int = {
