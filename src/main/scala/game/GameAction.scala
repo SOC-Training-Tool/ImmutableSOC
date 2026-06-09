@@ -99,53 +99,53 @@ type ActionState[S, D <: Tuple] = Tuple.Concat[Lift[S], TupleDiff[D, Lift[S]]]
  *  inference for invariant Delta[_] in list literals.  The public API
  *  casts back to List[DeltaOf[D]] for type-safe consumption.
  */
-class GameAction[M, S, D <: Tuple](private val run: (M, S) => List[Any]):
+class GameAction[M, S, Out]:
 
   /** Run the action, returning only the deltas (state not modified). */
-  def apply(move: M, input: S): List[DeltaOf[D]] =
-    run(move, input).asInstanceOf[List[DeltaOf[D]]]
+  def apply(move: M, input: S): Out 
+   
 
-  /** Run the action against a full state: extracts S, produces deltas,
-   *  applies each delta back to Full via ApplyDeltasTo, returns updated Full + deltas.
-   */
-  def applyFull[Full](move: M, full: Full)(
-    using sSlice: Slice[Full, S],
-    applyD: ApplyDeltasTo[Full, D]
-  ): (Full, List[DeltaOf[D]]) =
-    val rawDeltas = run(move, sSlice.get(full))
-    val newFull   = rawDeltas.foldLeft(full)(applyD.applyAny)
-    (newFull, rawDeltas.asInstanceOf[List[DeltaOf[D]]])
-
-  /** Run the action against the minimal combined state ActionState[S, D] —
-   *  the deduplicated union of S's fields and D's state component types.
-   *
-   *  Unlike applyFull (which requires a Full game state), this works with
-   *  exactly the fields the action needs, nothing more.
-   *
-   *  The compiler derives Slice[ActionState[S,D], S] and
-   *  ApplyDeltasTo[ActionState[S,D], D] automatically from the concrete types.
-   */
-  def apply_(move: M, state: ActionState[S, D])(
-    using sSlice: Slice[ActionState[S, D], S],
-    applyD: ApplyDeltasTo[ActionState[S, D], D]
-  ): (ActionState[S, D], List[DeltaOf[D]]) =
-    val rawDeltas = run(move, sSlice.get(state))
-    val newState  = rawDeltas.foldLeft(state)(applyD.applyAny)
-    (newState, rawDeltas.asInstanceOf[List[DeltaOf[D]]])
-
-  /** Sequence two actions: state becomes a pair, D becomes Tuple.Concat[D, D2]. */
-  def andThen[S2, D2 <: Tuple](other: GameAction[M, S2, D2]): GameAction[M, (S, S2), Tuple.Concat[D, D2]] =
-    new GameAction[M, (S, S2), Tuple.Concat[D, D2]]((m, s) =>
-      run(m, s._1) ++ other.run(m, s._2)
-    )
-
-  /** Transform the move type. */
-  def compose[M2](f: M2 => M): GameAction[M2, S, D] =
-    new GameAction((m2, s) => run(f(m2), s))
-
-  /** Transform the move type using additional state. */
-  def composeS[M2, S2](f: (M2, S2) => M): GameAction[M2, (S, S2), D] =
-    new GameAction((m2, s) => run(f(m2, s._2), s._1))
+//  /** Run the action against a full state: extracts S, produces deltas,
+//   *  applies each delta back to Full via ApplyDeltasTo, returns updated Full + deltas.
+//   */
+//  def applyFull[Full](move: M, full: Full)(
+//    using sSlice: Slice[Full, S],
+//    applyD: ApplyDeltasTo[Full, D]
+//  ): (Full, List[DeltaOf[D]]) =
+//    val rawDeltas = run(move, sSlice.get(full))
+//    val newFull   = rawDeltas.foldLeft(full)(applyD.applyAny)
+//    (newFull, rawDeltas.asInstanceOf[List[DeltaOf[D]]])
+//
+//  /** Run the action against the minimal combined state ActionState[S, D] —
+//   *  the deduplicated union of S's fields and D's state component types.
+//   *
+//   *  Unlike applyFull (which requires a Full game state), this works with
+//   *  exactly the fields the action needs, nothing more.
+//   *
+//   *  The compiler derives Slice[ActionState[S,D], S] and
+//   *  ApplyDeltasTo[ActionState[S,D], D] automatically from the concrete types.
+//   */
+//  def apply_(move: M, state: ActionState[S, D])(
+//    using sSlice: Slice[ActionState[S, D], S],
+//    applyD: ApplyDeltasTo[ActionState[S, D], D]
+//  ): (ActionState[S, D], List[DeltaOf[D]]) =
+//    val rawDeltas = run(move, sSlice.get(state))
+//    val newState  = rawDeltas.foldLeft(state)(applyD.applyAny)
+//    (newState, rawDeltas.asInstanceOf[List[DeltaOf[D]]])
+//
+//  /** Sequence two actions: state becomes a pair, D becomes Tuple.Concat[D, D2]. */
+//  def andThen[S2, D2 <: Tuple](other: GameAction[M, S2, D2]): GameAction[M, (S, S2), Tuple.Concat[D, D2]] =
+//    new GameAction[M, (S, S2), Tuple.Concat[D, D2]]((m, s) =>
+//      run(m, s._1) ++ other.run(m, s._2)
+//    )
+//
+//  /** Transform the move type. */
+//  def compose[M2](f: M2 => M): GameAction[M2, S, D] =
+//    new GameAction((m2, s) => run(f(m2), s))
+//
+//  /** Transform the move type using additional state. */
+//  def composeS[M2, S2](f: (M2, S2) => M): GameAction[M2, (S, S2), D] =
+//    new GameAction((m2, s) => run(f(m2, s._2), s._1))
 
 object GameAction:
 
