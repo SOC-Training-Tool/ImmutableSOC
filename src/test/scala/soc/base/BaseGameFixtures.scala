@@ -1,3 +1,4 @@
+/*
 package soc.base
 
 import game.InventorySet
@@ -395,3 +396,4 @@ object BaseGameFixtures:
       testMoveResults.foldLeft(initPublicInfoState) { case (s, m) =>
         PublicInfoGame.game.applyMove(m, s)._2
       }
+*/

@@ -36,7 +36,4 @@ object ResourceInventories:
       case Transactions.Lose(player, set) =>
         PrivateInventories(m.updatedWith(player)(_.map(_.subtract(set))))
 
-  case class ProbableInventories[II](m: List[(Int, Map[Int, InventorySet[II, Int]])])
-      extends GameState[ProbableInventories[II]]:
-    type Delta = Transactions.ImperfectInfo[II]
-    override def apply(delta: Transactions.ImperfectInfo[II]): ProbableInventories[II] = this
+

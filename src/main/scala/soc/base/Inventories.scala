@@ -1,41 +1,29 @@
 package soc.base
 
-import game.{Delta, GameState}
-import soc.core.{DevTransactions, PrivateDevCardInv, PublicDevCardInv, Resource}
+import game.GameState
+import soc.core.{PrivateDevCardInv, PublicDevCardInv, Resource}
 import soc.core.ResourceInventories.{PrivateInventories, PublicInventories}
-import soc.core.ResourceSet.Resources
 import soc.core.Transactions.{Gain, Lose}
+import soc.core.DevTransactions.PlayCard
 import soc.base.DevelopmentCards.DevelopmentCard
 
-// ── Resource inventory ──────────────────────────────────────────────────────
-
 trait ResourceInventory[Inv <: GameState[Inv]]:
-  def gain(player: Int, resources: Resources): Delta[Inv]
-  def lose(player: Int, resources: Resources): Delta[Inv]
-
-/** Marker: PrivateInventory is a subtype of ResourceInventory.
- *  Anything requiring ResourceInventory[Inv] accepts PrivateInventory[Inv] too. */
-trait PrivateResourceInventory[Inv <: GameState[Inv]] extends ResourceInventory[Inv]
+  def applyGain(inv: Inv, gain: Gain[Resource]): Inv
+  def applyLose(inv: Inv, lose: Lose[Resource]): Inv
 
 given ResourceInventory[PublicInventories[Resource]] with
-  def gain(p: Int, r: Resources) = Delta[PublicInventories[Resource]](Gain(p, r))
-  def lose(p: Int, r: Resources) = Delta[PublicInventories[Resource]](Lose(p, r))
+  def applyGain(inv: PublicInventories[Resource], gain: Gain[Resource]) = inv(gain)
+  def applyLose(inv: PublicInventories[Resource], lose: Lose[Resource]) = inv(lose)
 
-given PrivateResourceInventory[PrivateInventories[Resource]] with
-  def gain(p: Int, r: Resources) = Delta[PrivateInventories[Resource]](Gain(p, r))
-  def lose(p: Int, r: Resources) = Delta[PrivateInventories[Resource]](Lose(p, r))
-
-// ── Dev card inventory ──────────────────────────────────────────────────────
+given ResourceInventory[PrivateInventories[Resource]] with
+  def applyGain(inv: PrivateInventories[Resource], gain: Gain[Resource]) = inv(gain)
+  def applyLose(inv: PrivateInventories[Resource], lose: Lose[Resource]) = inv(lose)
 
 trait DevCardInventory[Inv <: GameState[Inv]]:
-  def playCard(card: DevelopmentCard, player: Int, turn: Int): Delta[Inv]
-
-trait PrivateDevCardInventory[Inv <: GameState[Inv]] extends DevCardInventory[Inv]
+  def applyPlayCard(inv: Inv, pc: PlayCard[DevelopmentCard]): Inv
 
 given DevCardInventory[PublicDevCardInv[DevelopmentCard]] with
-  def playCard(card: DevelopmentCard, player: Int, turn: Int) =
-    Delta[PublicDevCardInv[DevelopmentCard]](DevTransactions.PlayCard(card, player, turn))
+  def applyPlayCard(inv: PublicDevCardInv[DevelopmentCard], pc: PlayCard[DevelopmentCard]) = inv(pc)
 
-given PrivateDevCardInventory[PrivateDevCardInv[DevelopmentCard]] with
-  def playCard(card: DevelopmentCard, player: Int, turn: Int) =
-    Delta[PrivateDevCardInv[DevelopmentCard]](DevTransactions.PlayCard(card, player, turn))
+given DevCardInventory[PrivateDevCardInv[DevelopmentCard]] with
+  def applyPlayCard(inv: PrivateDevCardInv[DevelopmentCard], pc: PlayCard[DevelopmentCard]) = inv(pc)

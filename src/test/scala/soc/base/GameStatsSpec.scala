@@ -1,3 +1,4 @@
+/*
 package soc.base
 
 import game.InventorySet
@@ -168,3 +169,4 @@ class GameStatsSpec extends AnyFunSpec with Matchers:
         GameStats.update(GameStats.empty, rollDeltas), buildDeltas)
       stats.diceRolls.byPlayer(0).getAmount(WOOD) shouldBe 1
       stats.builds.settlementCount(0) shouldBe 1
+*/

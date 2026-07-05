@@ -4,10 +4,6 @@ import game.{GameState, InventorySet}
 
 package object state:
 
-  case class PlayerIds(players: Seq[Int]) extends GameState[PlayerIds]:
-    override type Delta = Nothing
-    override def apply(delta: Nothing): PlayerIds = this
-
   case class MoveCount(count: Int) extends GameState[MoveCount]:
     override type Delta = Int
     override def apply(delta: Int): MoveCount = MoveCount(count + delta)

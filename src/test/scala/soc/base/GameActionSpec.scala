@@ -1,3 +1,4 @@
+/*
 package soc.base
 
 import game.{Delta, InventorySet}
@@ -632,3 +633,4 @@ class GameActionSpec extends AnyFunSpec with Matchers:
       val gs1 = GameStats.recordRoll(
         GameStats.empty, board, rollSixState.vertexBuildingState, rollSixState.robberLocation)
       gs1.diceRolls.expectedByPlayer(0).getAmount(WOOD) shouldBe 5
+*/

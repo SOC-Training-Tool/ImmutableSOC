@@ -56,21 +56,4 @@ package object core:
   case object City       extends BoardBuilding[Vertex]
   case object Road       extends BoardBuilding[Edge]
 
-  trait VertexBuildingValue[A]:
-    def apply: Int
 
-  type VertexBuilding = Settlement.type | City.type
-  type EdgeBuilding   = Road.type
-
-  object VertexBuilding:
-    val SETTLEMENT: VertexBuilding = Settlement
-    val CITY:       VertexBuilding = City
-
-    given settlementValue: VertexBuildingValue[Settlement.type] with
-      def apply: Int = 1
-
-    given cityValue: VertexBuildingValue[City.type] with
-      def apply: Int = 2
-
-  object EdgeBuilding:
-    val ROAD: EdgeBuilding = Road
