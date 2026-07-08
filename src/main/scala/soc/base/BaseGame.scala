@@ -1,6 +1,8 @@
 package soc.base
 
+import game.ImmutableGame
 import soc.base.DevelopmentCards.*
+import soc.base.actions.*
 import soc.base.state.*
 import soc.core.*
 import soc.core.ResourceInventories.*
@@ -47,3 +49,68 @@ object BaseGame:
     edgeBuildingState:       EdgeBuildingState[BaseEdgeBuilding],
     moveCount:               MoveCount
   )
+
+  val perfectInfoGame: ImmutableGame[PerfectInfoGame.Move, PerfectInfoState] =
+    PerfectInfoGame.game
+
+  val publicInfoGame: ImmutableGame[PublicInfoGame.Move, PublicInfoState] =
+    PublicInfoGame.game
+
+  private object PerfectInfoGame:
+
+    val game =
+      ImmutableGameBuilder[PerfectInfoState]
+        .register(EndTurnAction())
+        .register(BuildSettlementCoreAction())
+        .register(BuildCityAction())
+        .register(BuildRoadCoreAction())
+        .register(InitialPlacementCoreAction())
+        .register(RollDiceAction())
+        .register(PortTradeAction())
+        .register(TradeAction())
+        .register(DiscardAction())
+        .register(PerfectRobberAction())
+        .register(PerfectBuyDevCardAction())
+        .register(PlayPointAction())
+        .register(PlayMonopolyAction())
+        .register(PlayRoadBuilderCoreAction())
+        .register(PlayYearOfPlentyAction())
+        .register(PlayPerfectKnightAction())
+        .build
+
+    type Move = EndTurnMove | BuildSettlementMove | BuildCityMove | BuildRoadMove |
+      InitialPlacementMove | RollDiceMoveResult | PortTradeMove[Resource] |
+      TradeMove[Resource] | DiscardMove[Resource] |
+      PerfectInfoRobberMoveResult[Resource] |
+      PerfectInfoBuyDevelopmentCardMoveResult[DevelopmentCard] |
+      PlayPointMove | PlayMonopolyMoveResult[Resource] | PlayRoadBuilderMove |
+      PlayYearOfPlentyMove[Resource] | PerfectInfoPlayKnightResult[Resource]
+
+  private object PublicInfoGame:
+
+    val game =
+      ImmutableGameBuilder[PublicInfoState]
+        .register(EndTurnAction())
+        .register(BuildSettlementCoreAction())
+        .register(BuildCityAction())
+        .register(BuildRoadCoreAction())
+        .register(InitialPlacementCoreAction())
+        .register(RollDiceAction())
+        .register(PortTradeAction())
+        .register(TradeAction())
+        .register(DiscardAction())
+        .register(PublicRobberAction())
+        .register(PublicBuyDevCardAction())
+        .register(PlayPointAction())
+        .register(PlayMonopolyAction())
+        .register(PlayRoadBuilderCoreAction())
+        .register(PlayYearOfPlentyAction())
+        .register(PlayPublicKnightAction())
+        .build
+
+    type Move = EndTurnMove | BuildSettlementMove | BuildCityMove | BuildRoadMove |
+      InitialPlacementMove | RollDiceMoveResult | PortTradeMove[Resource] |
+      TradeMove[Resource] | DiscardMove[Resource] |
+      RobberMoveResult[Resource] | BuyDevelopmentCardMoveResult[DevelopmentCard] |
+      PlayPointMove | PlayMonopolyMoveResult[Resource] | PlayRoadBuilderMove |
+      PlayYearOfPlentyMove[Resource] | PlayKnightResult[Resource]

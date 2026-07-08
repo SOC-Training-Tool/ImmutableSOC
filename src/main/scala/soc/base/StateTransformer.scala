@@ -79,6 +79,9 @@ object Applier:
   given playCardApplier[S, Inv <: GameState[Inv]](using sf: StateField[S, Inv], dci: DevCardInventory[Inv]): Applier[S, PlayCard[DevelopmentCard]] with
     def apply(s: S, d: PlayCard[DevelopmentCard]): S = sf.set(s, dci.applyPlayCard(sf.get(s), d))
 
+  given ieApplier[S](using sf: StateField[S, PublicInventories[Resource]]): Applier[S, ImperfectInfoExchange[Resource]] with
+    def apply(s: S, d: ImperfectInfoExchange[Resource]): S = sf.set(s, sf.get(s)(d))
+
   given listApplier[S, A](using aa: Applier[S, A]): Applier[S, List[A]] with
     def apply(s: S, ds: List[A]): S = ds.foldLeft(s)((s, d) => aa(s, d))
 

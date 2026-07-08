@@ -1,4 +1,7 @@
 package game
 
-trait ImmutableGame[MOVES, STATE, DELTA]:
-  def applyMove(move: MOVES, state: STATE): (List[DELTA], STATE)
+import scala.reflect.ClassTag
+
+trait ImmutableGame[MOVES, STATE]:
+  type OutFor[M <: MOVES]
+  def applyMove[M <: MOVES](move: M, state: STATE)(using ClassTag[M]): (OutFor[M], STATE)

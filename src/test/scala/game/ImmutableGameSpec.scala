@@ -2,12 +2,13 @@ package game
 
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
-import soc.core.state.MoveCount
+import soc.base.{Applier, ImmutableGameBuilder}
 
 class ImmutableGameSpec extends AnyFunSpec with Matchers:
 
   case class M1(i: Int)
   case class M2()
+  case class M3()
 
   case class Foo(i: Int) extends GameState[Foo]:
     type Delta = Int
@@ -19,40 +20,37 @@ class ImmutableGameSpec extends AnyFunSpec with Matchers:
 
   case class TestState(foo: Foo, bar: Bar)
 
-  // Named delta wrappers
-  case class DeltaFoo(d: Int)
-  case class DeltaBar(d: String)
-  type TestDelta = DeltaFoo | DeltaBar | DeltaMoveCount
+  case class M1Output(delta: Int)
+  case class M2Output(fooDelta: Int, barDelta: String)
 
-  case class DeltaMoveCount(d: Int)
+  class M1Action extends GameAction[M1, NoInput.type, M1Output]:
+    def apply(move: M1, input: NoInput.type): M1Output = M1Output(move.i)
 
-  type MOVES = M1 | M2
+  class M2Action extends GameAction[M2, TestState, M2Output]:
+    def apply(move: M2, input: TestState): M2Output =
+      M2Output(input.foo.i, input.foo.i.toString)
 
-  val game: ImmutableGame[MOVES, TestState, TestDelta] =
-    new ImmutableGame[MOVES, TestState, TestDelta]:
-      def applyMove(move: MOVES, state: TestState): (List[TestDelta], TestState) =
-        val actionDeltas: List[TestDelta] = move match
-          case M1(i)  => List(DeltaFoo(state.bar.s.length + i))
-          case _: M2  => List(DeltaBar(state.foo.i.toString), DeltaFoo(state.foo.i))
-        val allDeltas = actionDeltas :+ DeltaMoveCount(1)
-        val newState  = allDeltas.foldLeft(state)(applyUpdate)
-        (allDeltas, newState)
+  given Applier[TestState, Int] with
+    def apply(s: TestState, d: Int): TestState = s.copy(foo = s.foo(d))
 
-      private def applyUpdate(state: TestState, d: TestDelta): TestState = d match
-        case DeltaFoo(dd)       => state.copy(foo = state.foo(dd))
-        case DeltaBar(dd)       => state.copy(bar = state.bar(dd))
-        case DeltaMoveCount(_)  => state  // not tracked in TestState
+  given Applier[TestState, String] with
+    def apply(s: TestState, d: String): TestState = s.copy(bar = s.bar(d))
 
-  describe("ImmutableGame"):
+  val game = ImmutableGameBuilder[TestState]
+    .register(M1Action())
+    .register(M2Action())
+    .build
 
-    it("should update the state on M1 action"):
-      val initState = TestState(Foo(0), Bar("0"))
-      val (deltas, state) = game.applyMove(M1(1), initState)
-      state.foo shouldBe Foo(2)  // bar.s.length("0") = 1, i = 1, so Foo(0 + 1 + 1) = Foo(2)
-      deltas.exists { case DeltaFoo(_) => true; case _ => false } shouldBe true
+  describe("ImmutableGameBuilder"):
 
-    it("should update the state on M2 action"):
+    it("should register M1 and return typed M1Output"):
+      val initState = TestState(Foo(0), Bar("hello"))
+      val (out, state) = game.applyMove(M1(3), initState)
+      out shouldBe M1Output(3)
+      state shouldBe TestState(Foo(3), Bar("hello"))
+
+    it("narrows the return type to the specific action output"):
       val initState = TestState(Foo(5), Bar("hello"))
-      val (_, state) = game.applyMove(M2(), initState)
-      state.bar shouldBe Bar("hello5")  // appended "5" (foo.i.toString)
-      state.foo shouldBe Foo(10)        // added foo.i=5 again
+      val (out, state) = game.applyMove(M2(), initState)
+      out shouldBe M2Output(5, "5")
+      state shouldBe TestState(Foo(10), Bar("hello5"))
