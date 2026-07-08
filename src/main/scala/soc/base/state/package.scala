@@ -16,8 +16,12 @@ package object state:
     type Delta = Increment | Set
 
   case class RobberLocation(robberHexId: Int) extends GameState[RobberLocation]:
-    type Delta = Int
-    override def apply(delta: Int): RobberLocation = RobberLocation(delta)
+    import RobberLocation.Delta
+    type Delta = RobberLocation.Delta
+    override def apply(delta: Delta): RobberLocation = RobberLocation(delta.hexId)
+
+  object RobberLocation:
+    case class Delta(hexId: Int)
 
   case class DevelopmentCardDeckSize(size: Int) extends GameState[DevelopmentCardDeckSize]:
     override type Delta = DevelopmentCardDeck.Remove.type

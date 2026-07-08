@@ -18,4 +18,4 @@ class PerfectRobberAction extends GameAction[PerfectInfoRobberMoveResult[Resourc
       val inv = InventorySet.fromList(Seq(steal.resource))
       List(Gain(move.player, inv), Lose(steal.victim, inv))
     }
-    PerfectRobberOutput(move.robberHexId, stealDeltas)
+    PerfectRobberOutput(RobberLocation.Delta(move.robberHexId), stealDeltas)

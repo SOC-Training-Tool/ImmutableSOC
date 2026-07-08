@@ -41,8 +41,8 @@ class GameActionSpec extends AnyFunSpec with Matchers {
     it("produces EndTurnOutput with turnIncrement = 1") {
       val action = EndTurnAction()
       val result = action(EndTurnMove(0), NoInput)
-      result shouldBe EndTurnOutput(1)
-      result.turnIncrement shouldBe 1
+      result shouldBe EndTurnOutput(Turn.Delta(1))
+      result.turnIncrement shouldBe Turn.Delta(1)
     }
 
     it("produces same output regardless of player id") {
@@ -50,7 +50,7 @@ class GameActionSpec extends AnyFunSpec with Matchers {
       val r1 = action(EndTurnMove(0), NoInput)
       val r2 = action(EndTurnMove(3), NoInput)
       r1 shouldBe r2
-      r2.turnIncrement shouldBe 1
+      r2.turnIncrement shouldBe Turn.Delta(1)
     }
   }
 
@@ -284,7 +284,7 @@ class GameActionSpec extends AnyFunSpec with Matchers {
       val action = PerfectRobberAction()
       val move   = PerfectInfoRobberMoveResult[Resource](0, 5, None)
       val result = action(move, NoInput)
-      result.newRobberLocation shouldBe 5
+      result.newRobberLocation shouldBe RobberLocation.Delta(5)
       result.steals shouldBe empty
     }
 
@@ -292,7 +292,7 @@ class GameActionSpec extends AnyFunSpec with Matchers {
       val action = PerfectRobberAction()
       val move   = PerfectInfoRobberMoveResult[Resource](0, 5, Some(PlayerSteal(1, Wood)))
       val result = action(move, NoInput)
-      result.newRobberLocation shouldBe 5
+      result.newRobberLocation shouldBe RobberLocation.Delta(5)
       result.steals should have length 2
       result.steals(0) shouldBe Gain(0, InventorySet.fromList(Seq(Wood)))
       result.steals(1) shouldBe Lose(1, InventorySet.fromList(Seq(Wood)))
@@ -302,7 +302,7 @@ class GameActionSpec extends AnyFunSpec with Matchers {
       val action = PerfectRobberAction()
       val move   = PerfectInfoRobberMoveResult[Resource](1, 3, Some(PlayerSteal(2, Ore)))
       val result = action(move, NoInput)
-      result.newRobberLocation shouldBe 3
+      result.newRobberLocation shouldBe RobberLocation.Delta(3)
       result.steals(0) shouldBe Gain(1, InventorySet.fromList(Seq(Ore)))
       result.steals(1) shouldBe Lose(2, InventorySet.fromList(Seq(Ore)))
     }
@@ -311,7 +311,7 @@ class GameActionSpec extends AnyFunSpec with Matchers {
       val action = PerfectRobberAction()
       val move   = PerfectInfoRobberMoveResult[Resource](2, 8, Some(PlayerSteal(0, Wheat)))
       val result = action(move, NoInput)
-      result.newRobberLocation shouldBe 8
+      result.newRobberLocation shouldBe RobberLocation.Delta(8)
       result.steals(0) shouldBe Gain(2, InventorySet.fromList(Seq(Wheat)))
       result.steals(1) shouldBe Lose(0, InventorySet.fromList(Seq(Wheat)))
     }
@@ -324,7 +324,7 @@ class GameActionSpec extends AnyFunSpec with Matchers {
       val action = PublicRobberAction()
       val move   = RobberMoveResult[Resource](0, 5, None)
       val result = action(move, NoInput)
-      result.newRobberLocation shouldBe 5
+      result.newRobberLocation shouldBe RobberLocation.Delta(5)
       result.steal shouldBe None
     }
 
@@ -332,7 +332,7 @@ class GameActionSpec extends AnyFunSpec with Matchers {
       val action = PublicRobberAction()
       val move   = RobberMoveResult[Resource](0, 5, Some(PlayerSteal(1, Some(Wood))))
       val result = action(move, NoInput)
-      result.newRobberLocation shouldBe 5
+      result.newRobberLocation shouldBe RobberLocation.Delta(5)
       result.steal shouldBe Some(ImperfectInfoExchange(1, 0, Some(Wood)))
     }
 
@@ -340,7 +340,7 @@ class GameActionSpec extends AnyFunSpec with Matchers {
       val action = PublicRobberAction()
       val move   = RobberMoveResult[Resource](0, 5, Some(PlayerSteal(1, None)))
       val result = action(move, NoInput)
-      result.newRobberLocation shouldBe 5
+      result.newRobberLocation shouldBe RobberLocation.Delta(5)
       result.steal shouldBe Some(ImperfectInfoExchange(1, 0, None))
     }
   }

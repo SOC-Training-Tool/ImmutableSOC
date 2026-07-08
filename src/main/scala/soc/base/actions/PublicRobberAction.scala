@@ -17,4 +17,4 @@ class PublicRobberAction extends GameAction[RobberMoveResult[Resource], NoInput.
     val stealDelta = move.steal.map { steal =>
       ImperfectInfoExchange[Resource](steal.victim, move.player, steal.resource)
     }
-    PublicRobberOutput(move.robberHexId, stealDelta)
+    PublicRobberOutput(RobberLocation.Delta(move.robberHexId), stealDelta)

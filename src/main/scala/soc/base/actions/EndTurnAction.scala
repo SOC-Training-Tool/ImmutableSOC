@@ -8,4 +8,4 @@ case class EndTurnOutput(turnIncrement: Turn#Delta)
 
 class EndTurnAction extends GameAction[EndTurnMove, NoInput.type, EndTurnOutput]:
   def apply(move: EndTurnMove, input: NoInput.type): EndTurnOutput =
-    EndTurnOutput(1)
+    EndTurnOutput(Turn.Delta(1))

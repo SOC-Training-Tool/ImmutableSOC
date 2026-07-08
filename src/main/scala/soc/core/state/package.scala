@@ -5,8 +5,12 @@ import game.{GameState, InventorySet}
 package object state:
 
   case class MoveCount(count: Int) extends GameState[MoveCount]:
-    override type Delta = Int
-    override def apply(delta: Int): MoveCount = MoveCount(count + delta)
+    import MoveCount.Delta
+    override type Delta = MoveCount.Delta
+    override def apply(delta: Delta): MoveCount = MoveCount(count + delta.n)
+
+  object MoveCount:
+    case class Delta(n: Int)
 
   case class PlayerBuilding[+BB](player: Int, building: BB)
 
@@ -51,8 +55,12 @@ package object state:
     case class Take[II](inv: InventorySet[II, Int])
 
   case class Turn(t: Int) extends GameState[Turn]:
-    override type Delta = Int
-    override def apply(delta: Int): Turn = Turn(t + delta)
+    import Turn.Delta
+    override type Delta = Turn.Delta
+    override def apply(delta: Delta): Turn = Turn(t + delta.n)
+
+  object Turn:
+    case class Delta(n: Int)
 
   case class PlayerPoints(points: PlayerMap[Int]) extends GameState[PlayerPoints]:
     override type Delta = PlayerPoints.Increment | PlayerPoints.Decrement

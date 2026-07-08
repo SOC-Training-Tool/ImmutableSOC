@@ -70,14 +70,34 @@ object Applier:
   given deckApplier[S](using sf: StateField[S, DevelopmentCardDeck[DevelopmentCard]]): Applier[S, DevelopmentCardDeck[DevelopmentCard]#Delta] with
     def apply(s: S, d: DevelopmentCardDeck[DevelopmentCard]#Delta): S = sf.set(s, sf.get(s)(d))
 
-  given gainApplier[S, Inv <: GameState[Inv]](using sf: StateField[S, Inv], ri: ResourceInventory[Inv]): Applier[S, Gain[Resource]] with
+  given privGainApplier[S](using sf: StateField[S, PrivateInventories[Resource]], ri: ResourceInventory[PrivateInventories[Resource]]): Applier[S, Gain[Resource]] with
     def apply(s: S, d: Gain[Resource]): S = sf.set(s, ri.applyGain(sf.get(s), d))
 
-  given loseApplier[S, Inv <: GameState[Inv]](using sf: StateField[S, Inv], ri: ResourceInventory[Inv]): Applier[S, Lose[Resource]] with
+  given privLoseApplier[S](using sf: StateField[S, PrivateInventories[Resource]], ri: ResourceInventory[PrivateInventories[Resource]]): Applier[S, Lose[Resource]] with
     def apply(s: S, d: Lose[Resource]): S = sf.set(s, ri.applyLose(sf.get(s), d))
 
-  given playCardApplier[S, Inv <: GameState[Inv]](using sf: StateField[S, Inv], dci: DevCardInventory[Inv]): Applier[S, PlayCard[DevelopmentCard]] with
+  given pubGainApplier[S](using sf: StateField[S, PublicInventories[Resource]], ri: ResourceInventory[PublicInventories[Resource]]): Applier[S, Gain[Resource]] with
+    def apply(s: S, d: Gain[Resource]): S = sf.set(s, ri.applyGain(sf.get(s), d))
+
+  given pubLoseApplier[S](using sf: StateField[S, PublicInventories[Resource]], ri: ResourceInventory[PublicInventories[Resource]]): Applier[S, Lose[Resource]] with
+    def apply(s: S, d: Lose[Resource]): S = sf.set(s, ri.applyLose(sf.get(s), d))
+
+  given privPlayCardApplier[S](using sf: StateField[S, PrivateDevCardInv[DevelopmentCard]], dci: DevCardInventory[PrivateDevCardInv[DevelopmentCard]]): Applier[S, PlayCard[DevelopmentCard]] with
     def apply(s: S, d: PlayCard[DevelopmentCard]): S = sf.set(s, dci.applyPlayCard(sf.get(s), d))
+
+  given pubPlayCardApplier[S](using sf: StateField[S, PublicDevCardInv[DevelopmentCard]], dci: DevCardInventory[PublicDevCardInv[DevelopmentCard]]): Applier[S, PlayCard[DevelopmentCard]] with
+    def apply(s: S, d: PlayCard[DevelopmentCard]): S = sf.set(s, dci.applyPlayCard(sf.get(s), d))
+
+  given gainOrLoseApplier[S](using
+    ga: Applier[S, Gain[Resource]],
+    la: Applier[S, Lose[Resource]]
+  ): Applier[S, Gain[Resource] | Lose[Resource]] with
+    def apply(s: S, d: Gain[Resource] | Lose[Resource]): S = d match
+      case g: Gain[Resource] => ga(s, g)
+      case l: Lose[Resource] => la(s, l)
+
+  given publicInvApplier[S](using sf: StateField[S, PublicInventories[Resource]]): Applier[S, PublicInventories[Resource]#Delta] with
+    def apply(s: S, d: PublicInventories[Resource]#Delta): S = sf.set(s, sf.get(s)(d))
 
   given ieApplier[S](using sf: StateField[S, PublicInventories[Resource]]): Applier[S, ImperfectInfoExchange[Resource]] with
     def apply(s: S, d: ImperfectInfoExchange[Resource]): S = sf.set(s, sf.get(s)(d))
@@ -87,11 +107,6 @@ object Applier:
 
   given optionApplier[S, A](using aa: Applier[S, A]): Applier[S, Option[A]] with
     def apply(s: S, od: Option[A]): S = od.fold(s)(d => aa(s, d))
-
-  given unionApplier[S, A, B](using aa: Applier[S, A], ab: Applier[S, B]): Applier[S, A | B] with
-    def apply(s: S, d: A | B): S = d match
-      case a: A @unchecked => aa(s, a)
-      case b: B @unchecked => ab(s, b)
 
 // ---- Updater ----
 

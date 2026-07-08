@@ -17,7 +17,10 @@ object ResourceInventories:
     override type Delta = Transactions.ImperfectInfo[II]
     override def apply(delta: Transactions.ImperfectInfo[II]): PublicInventories[II] = delta match
       case Transactions.Gain(player, set) =>
-        PublicInventories(m.updatedWith(player)(_.map(_ + set.getTotal)))
+        PublicInventories(m.updatedWith(player) {
+          case Some(existing) => Some(existing + set.getTotal)
+          case None           => Some(set.getTotal)
+        })
       case Transactions.Lose(player, set) =>
         PublicInventories(m.updatedWith(player)(_.map(_ - set.getTotal)))
       case Transactions.ImperfectInfoExchange(from, to, _) =>
@@ -32,7 +35,10 @@ object ResourceInventories:
     override type Delta = Transactions.PerfectInfo[II]
     override def apply(delta: Transactions.PerfectInfo[II]): PrivateInventories[II] = delta match
       case Transactions.Gain(player, set) =>
-        PrivateInventories(m.updatedWith(player)(_.map(_.add(set))))
+        PrivateInventories(m.updatedWith(player) {
+          case Some(existing) => Some(existing.add(set))
+          case None           => Some(set)
+        })
       case Transactions.Lose(player, set) =>
         PrivateInventories(m.updatedWith(player)(_.map(_.subtract(set))))
 

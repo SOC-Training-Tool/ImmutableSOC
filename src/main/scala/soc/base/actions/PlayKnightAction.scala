@@ -23,7 +23,7 @@ class PlayPerfectKnightAction extends GameAction[PerfectInfoPlayKnightResult[Res
     }
     PlayPerfectKnightOutput(
       cardPlayed        = PlayCard(DevelopmentCards.KNIGHT, move.inner.player, input.turn.t),
-      newRobberLocation = move.inner.robberHexId,
+      newRobberLocation = RobberLocation.Delta(move.inner.robberHexId),
       steals            = stealDeltas
     )
 
@@ -40,6 +40,6 @@ class PlayPublicKnightAction extends GameAction[PlayKnightResult[Resource], Turn
     }
     PlayPublicKnightOutput(
       cardPlayed        = PlayCard(DevelopmentCards.KNIGHT, move.inner.player, input.turn.t),
-      newRobberLocation = move.inner.robberHexId,
+      newRobberLocation = RobberLocation.Delta(move.inner.robberHexId),
       steal             = stealDelta
     )
