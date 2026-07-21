@@ -12,41 +12,60 @@ type ComputeOut[M, T <: Tuple] = T match
   case _ *: tl => ComputeOut[M, tl]
   case EmptyTuple => Nothing
 
-object ImmutableGameBuilder:
-  def apply[S]: ImmutableGameBuilder[S, EmptyTuple] =
-    new ImmutableGameBuilder(Vector.empty)
+type OutputUnion[T <: Tuple] = T match
+  case (m, o) *: tl => o | OutputUnion[tl]
+  case EmptyTuple => Nothing
 
-class ImmutableGameBuilder[S, Regs <: Tuple] private (
-  handlers: Vector[(Class[?], (Any, S) => (Any, S))]
+private trait RegisteredActionBase[State <: Product]:
+  def applyIfMatches(move: Any, state: State): Option[(Any, State)]
+
+private final case class RegisteredAction[State <: Product, Move, In, Out <: Product](
+    action: GameAction[Move, In, Out],
+    classTag: ClassTag[Move],
+    extractor: Extractor[State, In],
+    outputApplier: OutputApplier[State, Out]
+) extends RegisteredActionBase[State]:
+  def applyIfMatches(move: Any, state: State): Option[(Any, State)] =
+    classTag.unapply(move).map: typedMove =>
+      val output = action(typedMove, extractor.extract(state))
+      (output, outputApplier(state, output))
+
+final class ImmutableGameBuilder[State <: Product, Registry <: Tuple] private (
+    private val actions: List[RegisteredActionBase[State]]
 ):
+  def register[Move, In, Out <: Product](action: GameAction[Move, In, Out])(using
+      classTag: ClassTag[Move],
+      extractor: Extractor[State, In],
+      outputApplier: OutputApplier[State, Out]
+  ): ImmutableGameBuilder[State, (Move, Out) *: Registry] =
+    val registered = RegisteredAction(action, classTag, extractor, outputApplier)
+    new ImmutableGameBuilder(registered :: actions)
 
-  def register[M, In, Out](action: GameAction[M, In, Out])(
-    using ct: ClassTag[M], ext: Extractor[S, In], upd: Updater[S, Out]
-  ): ImmutableGameBuilder[S, (M, Out) *: Regs] =
-    val cls = ct.runtimeClass
-    val handler: (Any, S) => (Any, S) = (rawMove, state) =>
-      val m = rawMove.asInstanceOf[M]
-      val input = ext.extract(state)
-      val output = action(m, input)
-      val newState = upd.update(state, output)
-      (output, newState)
-    new ImmutableGameBuilder(handlers :+ (cls, handler))
+  def build: ImmutableGame[MoveUnion[Registry], State] {
+    type OutFor[M <: MoveUnion[Registry]] = ComputeOut[M, Registry]
+    type AllOutputs = OutputUnion[Registry]
+  } =
+    val registeredActions = actions
 
-  def build: ImmutableGame[MoveUnion[Regs], S] =
-    new ImmutableGameImpl[S, Regs](handlers)
+    new ImmutableGame[MoveUnion[Registry], State] {
+      type OutFor[M <: MoveUnion[Registry]] = ComputeOut[M, Registry]
+      type AllOutputs = OutputUnion[Registry]
 
-private class ImmutableGameImpl[S, Regs <: Tuple](
-  handlers: Vector[(Class[?], (Any, S) => (Any, S))]
-) extends ImmutableGame[MoveUnion[Regs], S]:
-  type OutFor[M <: MoveUnion[Regs]] = ComputeOut[M, Regs]
+      private def dispatch(move: Any, state: State): (Any, State) =
+        registeredActions.iterator
+          .map(_.applyIfMatches(move, state))
+          .collectFirst { case Some(result) => result }
+          .getOrElse(throw new IllegalArgumentException(s"No action registered for move: $move"))
 
-  def applyMove[M <: MoveUnion[Regs]](move: M, state: S)(using ct: ClassTag[M]): (OutFor[M], S) =
-    val cls = ct.runtimeClass
-    handlers.find(_._1 == cls) match
-      case Some((_, handler)) =>
-        val (output, newState) = handler(move, state)
+      def applyMove[M <: MoveUnion[Registry]](move: M, state: State)(using classTag: ClassTag[M]): (OutFor[M], State) =
+        val (output, newState) = dispatch(move, state)
         (output.asInstanceOf[OutFor[M]], newState)
-      case None =>
-        throw new IllegalArgumentException(
-          s"No handler registered for move type: $cls (move: $move)"
-        )
+
+      def applyMoveAny(move: MoveUnion[Registry], state: State): (AllOutputs, State) =
+        val (output, newState) = dispatch(move, state)
+        (output.asInstanceOf[AllOutputs], newState)
+    }
+
+object ImmutableGameBuilder:
+  def apply[State <: Product]: ImmutableGameBuilder[State, EmptyTuple] =
+    new ImmutableGameBuilder(Nil)

@@ -87,7 +87,7 @@ private[soc] class LongestRoadOps[Res, BOARD, VB, EB](board: BOARD, edgeBuilding
             calcLongestRoadLengthRecur(playerId, (l1, r2) :: stack.tail, Edge(l1, v1) :: Edge(r2, v2) :: visited),
             calcLongestRoadLengthRecur(playerId, (l2, r1) :: stack.tail, Edge(l2, v1) :: Edge(r1, v2) :: visited)
           ).max
-        case _                                  => throw new Exception("")
+        case _                                  => visited.length
       }
     }
   }

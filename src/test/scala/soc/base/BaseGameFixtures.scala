@@ -1,8 +1,6 @@
-/*
 package soc.base
 
 import game.InventorySet
-import soc.ToPublicInfo
 import soc.base.BaseGame.*
 import soc.base.DevelopmentCards.*
 import soc.base.state.*
@@ -16,7 +14,19 @@ object BaseGameFixtures:
 
   private val bank: Resources = InventorySet.fromMap(Map(WOOD -> 19, BRICK -> 19, SHEEP -> 19, WHEAT -> 19, ORE -> 19))
 
-  object perfectInfoGame:
+  private def toPublicInfoMove(move: PerfectInfoMove): PublicInfoMove = move match
+    case m: PerfectInfoRobberMoveResult[Resource] =>
+      RobberMoveResult[Resource](m.player, m.robberHexId, m.steal.map(s => PlayerSteal(s.victim, Some(s.resource))))
+    case m: PerfectInfoBuyDevelopmentCardMoveResult[DevelopmentCard] =>
+      BuyDevelopmentCardMoveResult[DevelopmentCard](m.player, Some(m.card))
+    case m: PerfectInfoPlayKnightResult[Resource] =>
+      val inner = m.inner
+      PlayKnightResult[Resource](
+        RobberMoveResult(inner.player, inner.robberHexId, inner.steal.map(s => PlayerSteal(s.victim, Some(s.resource))))
+      )
+    case m => m.asInstanceOf[PublicInfoMove]
+
+  object perfectInfoFixture:
 
     private val devDeck: List[DevelopmentCard] = List(
       KNIGHT, POINT, KNIGHT, POINT, POINT, KNIGHT, KNIGHT, ROAD_BUILDER,
@@ -59,10 +69,11 @@ object BaseGameFixtures:
       socLongestRoadPlayer = SOCLongestRoadPlayer(None),
       board                = board,
       edgeBuildingState    = EdgeBuildingState(Map.empty),
-      moveCount            = MoveCount(0)
+      moveCount            = MoveCount(0),
+      setupPlacementOrder  = SetupPlacementOrder(Nil)
     )
 
-    val testMoveResults: List[PerfectInfoGame.MOVES] = List(
+    val testMoveResults: List[PerfectInfoMove] = List(
       InitialPlacementMove(Vertex(41), Edge(Vertex(40), Vertex(41)), 0),
       InitialPlacementMove(Vertex(34), Edge(Vertex(7), Vertex(34)), 1),
       InitialPlacementMove(Vertex(44), Edge(Vertex(44), Vertex(45)), 2),
@@ -236,15 +247,15 @@ object BaseGameFixtures:
 
     lazy val perfectResult: PerfectInfoState =
       testMoveResults.foldLeft(initPerfectInfoState) { case (s, m) =>
-        PerfectInfoGame.game.applyMove(m, s)._2
+        perfectInfoGame.applyMoveAny(m, s)._2
       }
 
-    val imperfectTestMoveResults: List[PublicInfoGame.MOVES] =
-      testMoveResults.map(ToPublicInfo.apply) ++ List[PublicInfoGame.MOVES](
+    val imperfectTestMoveResults: List[PublicInfoMove] =
+      testMoveResults.map(toPublicInfoMove) ++ List[PublicInfoMove](
         PlayPointMove(0), PlayPointMove(1), PlayPointMove(2), PlayPointMove(3)
       )
 
-  object imperfectInfoGame:
+  object publicInfoFixture:
 
     private val devDeck = DevelopmentCardDeckSize(25)
 
@@ -282,10 +293,11 @@ object BaseGameFixtures:
       socLongestRoadPlayer    = SOCLongestRoadPlayer(None),
       board                   = board,
       edgeBuildingState       = EdgeBuildingState(Map.empty),
-      moveCount               = MoveCount(0)
+      moveCount               = MoveCount(0),
+      setupPlacementOrder     = SetupPlacementOrder(Nil)
     )
 
-    val testMoveResults: List[PublicInfoGame.MOVES] = List(
+    val testMoveResults: List[PublicInfoMove] = List(
       InitialPlacementMove(Vertex(33), Edge(Vertex(4), Vertex(33)), 0),
       InitialPlacementMove(Vertex(42), Edge(Vertex(42), Vertex(43)), 1),
       InitialPlacementMove(Vertex(37), Edge(Vertex(12), Vertex(37)), 2),
@@ -394,6 +406,5 @@ object BaseGameFixtures:
 
     lazy val publicResult: PublicInfoState =
       testMoveResults.foldLeft(initPublicInfoState) { case (s, m) =>
-        PublicInfoGame.game.applyMove(m, s)._2
+        publicInfoGame.applyMoveAny(m, s)._2
       }
-*/

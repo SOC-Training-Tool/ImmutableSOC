@@ -29,7 +29,8 @@ object BaseGame:
     socLongestRoadPlayer: SOCLongestRoadPlayer,
     board:                BaseBoard[Resource],
     edgeBuildingState:    EdgeBuildingState[BaseEdgeBuilding],
-    moveCount:            MoveCount
+    moveCount:            MoveCount,
+    setupPlacementOrder:  SetupPlacementOrder
   )
 
   case class PublicInfoState(
@@ -47,7 +48,8 @@ object BaseGame:
     socLongestRoadPlayer:    SOCLongestRoadPlayer,
     board:                   BaseBoard[Resource],
     edgeBuildingState:       EdgeBuildingState[BaseEdgeBuilding],
-    moveCount:               MoveCount
+    moveCount:               MoveCount,
+    setupPlacementOrder:     SetupPlacementOrder
   )
 
   val perfectInfoGame: ImmutableGame[PerfectInfoGame.Move, PerfectInfoState] =
@@ -55,6 +57,9 @@ object BaseGame:
 
   val publicInfoGame: ImmutableGame[PublicInfoGame.Move, PublicInfoState] =
     PublicInfoGame.game
+
+  type PerfectInfoMove = PerfectInfoGame.Move
+  type PublicInfoMove  = PublicInfoGame.Move
 
   private object PerfectInfoGame:
 
@@ -71,7 +76,7 @@ object BaseGame:
         .register(DiscardAction())
         .register(PerfectRobberAction())
         .register(PerfectBuyDevCardAction())
-        .register(PlayPointAction())
+        .register(PlayPerfectPointAction())
         .register(PlayMonopolyAction())
         .register(PlayRoadBuilderCoreAction())
         .register(PlayYearOfPlentyAction())
@@ -101,7 +106,7 @@ object BaseGame:
         .register(DiscardAction())
         .register(PublicRobberAction())
         .register(PublicBuyDevCardAction())
-        .register(PlayPointAction())
+        .register(PlayPublicPointAction())
         .register(PlayMonopolyAction())
         .register(PlayRoadBuilderCoreAction())
         .register(PlayYearOfPlentyAction())

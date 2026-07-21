@@ -10,8 +10,10 @@ import soc.core.Transactions.*
 import soc.core.DevTransactions.*
 import soc.core.state.*
 
-import scala.compiletime.{erasedValue, summonInline}
+import scala.util.NotGiven
+import scala.compiletime.{constValue, erasedValue, summonInline}
 import scala.deriving.Mirror
+
 
 trait Extractor[S, In]:
   def extract(state: S): In
@@ -29,102 +31,139 @@ private trait LowPriorityExtractor:
 
   private inline def extractTuple[S, Elems <: Tuple](state: S): Elems =
     inline erasedValue[Elems] match
-      case _: EmptyTuple     => EmptyTuple.asInstanceOf[Elems]
+      case _: EmptyTuple => EmptyTuple.asInstanceOf[Elems]
       case _: (head *: tail) =>
         (summonInline[Slice[S, head]].get(state).asInstanceOf[head] *: extractTuple[S, tail](state)).asInstanceOf[Elems]
 
-// ---- Applier: maps a delta type to a state update operation ----
+import scala.compiletime.{erasedValue, summonInline}
 
-trait Applier[S, Delta]:
-  def apply(s: S, d: Delta): S
+// 2. Updated Type Class: Capture Delta as an explicit type parameter 'Del'
+trait TupleUpdater[T <: Tuple, D]:
+  type Out <: Tuple
 
-object Applier:
+  def update(t: T, delta: D): Out
 
-  given turnApplier[S](using sf: StateField[S, Turn]): Applier[S, Turn#Delta] with
-    def apply(s: S, d: Turn#Delta): S = sf.set(s, sf.get(s)(d))
+object TupleUpdater:
 
-  given bankApplier[S](using sf: StateField[S, Bank[Resource]]): Applier[S, Bank[Resource]#Delta] with
-    def apply(s: S, d: Bank[Resource]#Delta): S = sf.set(s, sf.get(s)(d))
+  given headMatches[H <: GameState[H] {type Delta = FieldDelta}, T <: Tuple, D, FieldDelta](using ev: D <:< FieldDelta): TupleUpdater[H *: T, D] with
+    type Out = H *: T
 
-  given pointsApplier[S](using sf: StateField[S, PlayerPoints]): Applier[S, PlayerPoints#Delta] with
-    def apply(s: S, d: PlayerPoints#Delta): S = sf.set(s, sf.get(s)(d))
+    def update(t: H *: T, delta: D): H *: T =
+      val head = t.head
+      // Safe to cast because 'ev' proves at compile-time that D fits into FieldDelta
+      val updatedHead = head.apply(delta.asInstanceOf[head.Delta])
+      updatedHead *: t.tail
 
-  given robberApplier[S](using sf: StateField[S, RobberLocation]): Applier[S, RobberLocation#Delta] with
-    def apply(s: S, d: RobberLocation#Delta): S = sf.set(s, sf.get(s)(d))
+  // Recursive case stays identical
+  given tailMatches[H, T <: Tuple, D](using next: TupleUpdater[T, D]): TupleUpdater[H *: T, D] with
+    type Out = H *: next.Out
 
-  given vertexApplier[S](using sf: StateField[S, VertexBuildingState[BaseVertexBuilding]]): Applier[S, VertexBuildingState[BaseVertexBuilding]#Delta] with
-    def apply(s: S, d: VertexBuildingState[BaseVertexBuilding]#Delta): S = sf.set(s, sf.get(s)(d))
+    def update(t: H *: T, delta: D): H *: next.Out =
+      t.head *: next.update(t.tail, delta)
 
-  given edgeApplier[S](using sf: StateField[S, EdgeBuildingState[BaseEdgeBuilding]]): Applier[S, EdgeBuildingState[BaseEdgeBuilding]#Delta] with
-    def apply(s: S, d: EdgeBuildingState[BaseEdgeBuilding]#Delta): S = sf.set(s, sf.get(s)(d))
+trait BulkTupleUpdater[T <: Tuple, Deltas <: Tuple]:
+  type Out <: Tuple
 
-  given pubDevApplier[S](using sf: StateField[S, PublicDevCardInv[DevelopmentCard]]): Applier[S, PublicDevCardInv[DevelopmentCard]#Delta] with
-    def apply(s: S, d: PublicDevCardInv[DevelopmentCard]#Delta): S = sf.set(s, sf.get(s)(d))
+  def updateAll(t: T, deltas: Deltas): Out
 
-  given privDevApplier[S](using sf: StateField[S, PrivateDevCardInv[DevelopmentCard]]): Applier[S, PrivateDevCardInv[DevelopmentCard]#Delta] with
-    def apply(s: S, d: PrivateDevCardInv[DevelopmentCard]#Delta): S = sf.set(s, sf.get(s)(d))
+object BulkTupleUpdater:
+  // Base case: No deltas left to apply
+  given emptyDeltas[T <: Tuple]: BulkTupleUpdater[T, EmptyTuple] with
+    type Out = T
 
-  given deckSizeApplier[S](using sf: StateField[S, DevelopmentCardDeckSize]): Applier[S, DevelopmentCardDeckSize#Delta] with
-    def apply(s: S, d: DevelopmentCardDeckSize#Delta): S = sf.set(s, sf.get(s)(d))
+    def updateAll(t: T, deltas: EmptyTuple): T = t
 
-  given deckApplier[S](using sf: StateField[S, DevelopmentCardDeck[DevelopmentCard]]): Applier[S, DevelopmentCardDeck[DevelopmentCard]#Delta] with
-    def apply(s: S, d: DevelopmentCardDeck[DevelopmentCard]#Delta): S = sf.set(s, sf.get(s)(d))
+  // Recursive case: Apply the head delta, then process the remaining tail deltas
+  given recursiveDeltas[T <: Tuple, DH, DT <: Tuple](using
+                                                     single: TupleUpdater[T, DH],
+                                                     bulk: BulkTupleUpdater[single.Out, DT]
+                                                    ): BulkTupleUpdater[T, DH *: DT] with
+    type Out = bulk.Out
 
-  given privGainApplier[S](using sf: StateField[S, PrivateInventories[Resource]], ri: ResourceInventory[PrivateInventories[Resource]]): Applier[S, Gain[Resource]] with
-    def apply(s: S, d: Gain[Resource]): S = sf.set(s, ri.applyGain(sf.get(s), d))
+    def updateAll(t: T, deltas: DH *: DT): bulk.Out =
+      val updatedOnce = single.update(t, deltas.head)
+      bulk.updateAll(updatedOnce, deltas.tail)
 
-  given privLoseApplier[S](using sf: StateField[S, PrivateInventories[Resource]], ri: ResourceInventory[PrivateInventories[Resource]]): Applier[S, Lose[Resource]] with
-    def apply(s: S, d: Lose[Resource]): S = sf.set(s, ri.applyLose(sf.get(s), d))
+trait FieldApplier[S <: Product, F]:
+  def apply(state: S, field: F): S
 
-  given pubGainApplier[S](using sf: StateField[S, PublicInventories[Resource]], ri: ResourceInventory[PublicInventories[Resource]]): Applier[S, Gain[Resource]] with
-    def apply(s: S, d: Gain[Resource]): S = sf.set(s, ri.applyGain(sf.get(s), d))
+object FieldApplier extends LowPriorityFieldApplier:
+  given optional[S <: Product, F](using applier: FieldApplier[S, F]): FieldApplier[S, Option[F]] with
+    def apply(state: S, field: Option[F]): S =
+      field match
+        case Some(value) => applier.apply(state, value)
+        case None        => state
 
-  given pubLoseApplier[S](using sf: StateField[S, PublicInventories[Resource]], ri: ResourceInventory[PublicInventories[Resource]]): Applier[S, Lose[Resource]] with
-    def apply(s: S, d: Lose[Resource]): S = sf.set(s, ri.applyLose(sf.get(s), d))
+  given list[S <: Product, F](using applier: FieldApplier[S, F]): FieldApplier[S, List[F]] with
+    def apply(state: S, field: List[F]): S =
+      field.foldLeft(state)(applier.apply)
 
-  given privPlayCardApplier[S](using sf: StateField[S, PrivateDevCardInv[DevelopmentCard]], dci: DevCardInventory[PrivateDevCardInv[DevelopmentCard]]): Applier[S, PlayCard[DevelopmentCard]] with
-    def apply(s: S, d: PlayCard[DevelopmentCard]): S = sf.set(s, dci.applyPlayCard(sf.get(s), d))
+private trait LowPriorityFieldApplier:
+  inline given atomic[S <: Product, F](using
+      m: Mirror.ProductOf[S],
+      updater: TupleUpdater[m.MirroredElemTypes, F]
+  ): FieldApplier[S, F] =
+    new FieldApplier[S, F]:
+      def apply(state: S, field: F): S =
+        state.applyDelta(field)(using updater)
 
-  given pubPlayCardApplier[S](using sf: StateField[S, PublicDevCardInv[DevelopmentCard]], dci: DevCardInventory[PublicDevCardInv[DevelopmentCard]]): Applier[S, PlayCard[DevelopmentCard]] with
-    def apply(s: S, d: PlayCard[DevelopmentCard]): S = sf.set(s, dci.applyPlayCard(sf.get(s), d))
+trait OutputApplier[S <: Product, D <: Product]:
+  def apply(state: S, output: D): S
 
-  given gainOrLoseApplier[S](using
-    ga: Applier[S, Gain[Resource]],
-    la: Applier[S, Lose[Resource]]
-  ): Applier[S, Gain[Resource] | Lose[Resource]] with
-    def apply(s: S, d: Gain[Resource] | Lose[Resource]): S = d match
-      case g: Gain[Resource] => ga(s, g)
-      case l: Lose[Resource] => la(s, l)
+object OutputApplier:
+  inline given derived[S <: Product, D <: Product](using dm: Mirror.ProductOf[D]): OutputApplier[S, D] =
+    new OutputApplier[S, D]:
+      private val fields = summonInline[OutputFieldsApplier[S, dm.MirroredElemTypes]]
 
-  given publicInvApplier[S](using sf: StateField[S, PublicInventories[Resource]]): Applier[S, PublicInventories[Resource]#Delta] with
-    def apply(s: S, d: PublicInventories[Resource]#Delta): S = sf.set(s, sf.get(s)(d))
+      def apply(state: S, output: D): S =
+        fields.apply(state, Tuple.fromProductTyped(output))
 
-  given ieApplier[S](using sf: StateField[S, PublicInventories[Resource]]): Applier[S, ImperfectInfoExchange[Resource]] with
-    def apply(s: S, d: ImperfectInfoExchange[Resource]): S = sf.set(s, sf.get(s)(d))
+private trait OutputFieldsApplier[S <: Product, Fields <: Tuple]:
+  def apply(state: S, fields: Fields): S
 
-  given listApplier[S, A](using aa: Applier[S, A]): Applier[S, List[A]] with
-    def apply(s: S, ds: List[A]): S = ds.foldLeft(s)((s, d) => aa(s, d))
+private object OutputFieldsApplier:
+  given empty[S <: Product]: OutputFieldsApplier[S, EmptyTuple] with
+    def apply(state: S, fields: EmptyTuple): S = state
 
-  given optionApplier[S, A](using aa: Applier[S, A]): Applier[S, Option[A]] with
-    def apply(s: S, od: Option[A]): S = od.fold(s)(d => aa(s, d))
+  inline given cons[S <: Product, Head, Tail <: Tuple](using
+      headApplier: FieldApplier[S, Head],
+      tailApplier: OutputFieldsApplier[S, Tail]
+  ): OutputFieldsApplier[S, Head *: Tail] with
+    def apply(state: S, fields: Head *: Tail): S =
+      tailApplier.apply(headApplier.apply(state, fields.head), fields.tail)
 
-// ---- Updater ----
+// ==========================================
+// 4. Extension Methods for State Containers
+// ==========================================
+extension [T <: Product](t: T)(using m: Mirror.ProductOf[T])
+  // Single Delta
+  inline def applyDelta[D](delta: D)(using updater: TupleUpdater[m.MirroredElemTypes, D]): T =
+    val tupleRep = Tuple.fromProductTyped(t)
+    val updated = updater.update(tupleRep.asInstanceOf[m.MirroredElemTypes], delta)
+    m.fromProduct(updated).asInstanceOf[T]
 
-trait Updater[S, Out]:
-  def update(state: S, out: Out): S
+  // Tuple of Deltas
+  inline def applyDelta[Deltas <: Tuple](deltas: Deltas)(using updater: BulkTupleUpdater[m.MirroredElemTypes, Deltas])(using DummyImplicit): T =
+    val tupleRep = Tuple.fromProductTyped(t)
+    val updated = updater.updateAll(tupleRep.asInstanceOf[m.MirroredElemTypes], deltas)
+    m.fromProduct(updated).asInstanceOf[T]
 
-object Updater extends LowPriorityUpdater
+  // Case Class of Deltas
+  inline def applyDeltaProduct[DP <: Product](deltas: DP)(using dm: Mirror.ProductOf[DP], updater: BulkTupleUpdater[m.MirroredElemTypes, dm.MirroredElemTypes]): T =
+    val tupleRep = Tuple.fromProductTyped(t)
+    val deltaTuple = Tuple.fromProductTyped(deltas)
+    val updated = updater.updateAll(
+      tupleRep.asInstanceOf[m.MirroredElemTypes],
+      deltaTuple.asInstanceOf[dm.MirroredElemTypes]
+    )
+    m.fromProduct(updated).asInstanceOf[T]
 
-private trait LowPriorityUpdater:
-  inline given derived[S <: Product, Out <: Product](using m: Mirror.ProductOf[Out]): Updater[S, Out] =
-    new Updater[S, Out]:
-      def update(state: S, out: Out): S =
-        applyTuple[S, m.MirroredElemTypes](state, Tuple.fromProduct(out).asInstanceOf[m.MirroredElemTypes])
+object StateTransformer:
 
-  private inline def applyTuple[S, Elems <: Tuple](s: S, fields: Elems): S =
-    inline erasedValue[Elems] match
-      case _: EmptyTuple => s
-      case _: (head *: tail) =>
-        val hd = fields.asInstanceOf[head *: tail].head
-        val tl = fields.asInstanceOf[head *: tail].tail
-        applyTuple[S, tail](summonInline[Applier[S, head]](s, hd), tl)
+  def update[M, S <: Product, D <: Product](f: (M, S) => D)(using m: Mirror.ProductOf[S])(using dm: Mirror.ProductOf[D], updater: BulkTupleUpdater[m.MirroredElemTypes, dm.MirroredElemTypes]): (M, S) => (D, S) = (move: M, state: S) =>
+    val deltas = f(move, state)
+    (deltas, state.applyDeltaProduct(deltas))
+
+  inline def updateFlexible[M, S <: Product, D <: Product](f: (M, S) => D)(using applier: OutputApplier[S, D]): (M, S) => (D, S) = (move: M, state: S) =>
+    val deltas = f(move, state)
+    (deltas, applier.apply(state, deltas))

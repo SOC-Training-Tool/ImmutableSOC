@@ -412,11 +412,27 @@ class GameActionSpec extends AnyFunSpec with Matchers {
     }
   }
 
-  // ── 13. PlayPointAction ─────────────────────────────────────────────────────
+  // ── 13. PlayPointActions ────────────────────────────────────────────────────
 
-  describe("PlayPointAction") {
+  describe("PlayPerfectPointAction") {
+    it("produces only the card played delta") {
+      val action = PlayPerfectPointAction()
+      val move   = PlayPointMove(0)
+      val input  = TurnInput(Turn(1))
+      val result = action(move, input)
+      result.cardPlayed  shouldBe PlayCard(DevelopmentCards.POINT, 0, 1)
+    }
+
+    it("uses correct player and turn") {
+      val action = PlayPerfectPointAction()
+      val result = action(PlayPointMove(2), TurnInput(Turn(5)))
+      result.cardPlayed  shouldBe PlayCard(DevelopmentCards.POINT, 2, 5)
+    }
+  }
+
+  describe("PlayPublicPointAction") {
     it("produces point gain and card played deltas") {
-      val action = PlayPointAction()
+      val action = PlayPublicPointAction()
       val move   = PlayPointMove(0)
       val input  = TurnInput(Turn(1))
       val result = action(move, input)
@@ -425,7 +441,7 @@ class GameActionSpec extends AnyFunSpec with Matchers {
     }
 
     it("uses correct player and turn") {
-      val action = PlayPointAction()
+      val action = PlayPublicPointAction()
       val result = action(PlayPointMove(2), TurnInput(Turn(5)))
       result.pointGained shouldBe PlayerPoints.Increment(2)
       result.cardPlayed  shouldBe PlayCard(DevelopmentCards.POINT, 2, 5)
@@ -548,7 +564,7 @@ class GameActionSpec extends AnyFunSpec with Matchers {
     it("first round: places settlement + road, grants VP, no resources") {
       val input = InitialPlacementInput(
         playerPoints        = PlayerPoints(Map(0 -> 0, 1 -> 0)),
-        moveCount           = MoveCount(0),
+        setupPlacementOrder = SetupPlacementOrder(Nil),
         board               = sampleBoard,
         vertexBuildingState = VertexBuildingState(Map.empty),
         edgeBuildingState   = EdgeBuildingState(Map.empty)
@@ -561,12 +577,16 @@ class GameActionSpec extends AnyFunSpec with Matchers {
       result.pointGained     shouldBe PlayerPoints.Increment(0)
       result.resourceGains   shouldBe empty
       result.bankLost        shouldBe empty
+      result.setupPlacementOrder shouldBe SetupPlacementOrder.Placement(0, Vertex(41))
     }
 
     it("second round: places settlement + road, grants VP") {
       val input = InitialPlacementInput(
         playerPoints        = PlayerPoints(Map(0 -> 0, 1 -> 0)),
-        moveCount           = MoveCount(2),
+        setupPlacementOrder = SetupPlacementOrder(List(
+          (0, Vertex(40)),
+          (1, Vertex(34))
+        )),
         board               = sampleBoard,
         vertexBuildingState = VertexBuildingState(Map.empty),
         edgeBuildingState   = EdgeBuildingState(Map.empty)
@@ -577,12 +597,13 @@ class GameActionSpec extends AnyFunSpec with Matchers {
       result.addedSettlement shouldBe add(Vertex(41), Settlement, 0)
       result.pointGained     shouldBe PlayerPoints.Increment(0)
       result.addedRoad       shouldBe add(Edge(Vertex(40), Vertex(41)), Road, 0)
+      result.setupPlacementOrder shouldBe SetupPlacementOrder.Placement(0, Vertex(41))
     }
 
-    it("handles players with moveCount beyond initial placements") {
+    it("handles players with setup complete (no more resources)") {
       val input = InitialPlacementInput(
         playerPoints        = PlayerPoints(Map(0 -> 0, 1 -> 0, 2 -> 0)),
-        moveCount           = MoveCount(3),
+        setupPlacementOrder = SetupPlacementOrder(Nil),
         board               = sampleBoard,
         vertexBuildingState = VertexBuildingState(Map.empty),
         edgeBuildingState   = EdgeBuildingState(Map.empty)
@@ -595,10 +616,10 @@ class GameActionSpec extends AnyFunSpec with Matchers {
       result.bankLost shouldBe empty
     }
 
-    it("second round with desert vertex produces no resources") {
+    it("desert vertex produces no resources in round 1") {
       val input = InitialPlacementInput(
         playerPoints        = PlayerPoints(Map(0 -> 0, 1 -> 0)),
-        moveCount           = MoveCount(2),
+        setupPlacementOrder = SetupPlacementOrder(Nil),
         board               = sampleBoard,
         vertexBuildingState = VertexBuildingState(Map.empty),
         edgeBuildingState   = EdgeBuildingState(Map.empty)
@@ -686,7 +707,7 @@ class GameActionSpec extends AnyFunSpec with Matchers {
     }
 
     it("PlayPointAction uses TurnInput.turn.t for card play turn") {
-      val action = PlayPointAction()
+      val action = PlayPublicPointAction()
       val result = action(PlayPointMove(1), TurnInput(Turn(3)))
       result.cardPlayed shouldBe PlayCard(DevelopmentCards.POINT, 1, 3)
     }

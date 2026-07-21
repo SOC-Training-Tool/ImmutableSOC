@@ -5,6 +5,7 @@ import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 import soc.base.BaseGame.*
 import soc.base.DevelopmentCards.*
+import soc.base.actions.{EndTurnOutput, InitialPlacementCoreOutput, RollDiceOutput}
 import soc.base.state.*
 import soc.core.*
 import soc.core.ResourceInventories.*
@@ -57,10 +58,11 @@ class BaseGameSpec extends AnyFunSpec with Matchers:
     vertexBuildingState  = VertexBuildingState(Map.empty),
     socRoadLengths       = SOCRoadLengths(Map.empty),
     socLongestRoadPlayer = SOCLongestRoadPlayer(None),
-    board                = sampleBoard,
-    edgeBuildingState    = EdgeBuildingState(Map.empty),
-    moveCount            = MoveCount(0)
-  )
+      board                = sampleBoard,
+      edgeBuildingState    = EdgeBuildingState(Map.empty),
+      moveCount            = MoveCount(0),
+      setupPlacementOrder  = SetupPlacementOrder(Nil)
+    )
 
   private def initPublic: PublicInfoState = PublicInfoState(
     robberLocation          = RobberLocation(10),
@@ -75,10 +77,11 @@ class BaseGameSpec extends AnyFunSpec with Matchers:
     vertexBuildingState     = VertexBuildingState(Map.empty),
     socRoadLengths          = SOCRoadLengths(Map.empty),
     socLongestRoadPlayer    = SOCLongestRoadPlayer(None),
-    board                   = sampleBoard,
-    edgeBuildingState       = EdgeBuildingState(Map.empty),
-    moveCount               = MoveCount(0)
-  )
+      board                   = sampleBoard,
+      edgeBuildingState       = EdgeBuildingState(Map.empty),
+      moveCount               = MoveCount(0),
+      setupPlacementOrder     = SetupPlacementOrder(Nil)
+    )
 
   describe("PerfectInfoGame"):
 
@@ -215,6 +218,48 @@ class BaseGameSpec extends AnyFunSpec with Matchers:
       s.privateInventories.m(0).getAmount(ORE) shouldBe 1
       s.privateInventories.m(0).getAmount(WHEAT) shouldBe 1
 
+    it("replays a list of union-typed moves with applyMoveAny"):
+      val moves: List[PerfectInfoMove] = List(
+        InitialPlacementMove(Vertex(41), Edge(Vertex(40), Vertex(41)), 0),
+        RollDiceMoveResult(0, 5),
+        EndTurnMove(0)
+      )
+      val state = moves.foldLeft(initPerfect) { (s, m) =>
+        perfectInfoGame.applyMoveAny(m, s)._2
+      }
+      state.playerPoints.points(0) shouldBe 1
+      state.turn.t shouldBe 1
+
+    it("applyMoveAny returns a value of the expected output union type"):
+      val move: PerfectInfoMove = RollDiceMoveResult(0, 5)
+      val (out, _) = perfectInfoGame.applyMoveAny(move, initPerfect)
+      out match
+        case _: RollDiceOutput => // expected
+        case _                 => fail(s"unexpected output type: ${out.getClass.getSimpleName}")
+
+    it("applyMoveAny returns the correct delta output for an end turn"):
+      val move: PerfectInfoMove = EndTurnMove(0)
+      val (out, state) = perfectInfoGame.applyMoveAny(move, initPerfect)
+      out match
+        case EndTurnOutput(delta) =>
+          delta shouldBe Turn.Delta(1)
+          state.turn.t shouldBe 1
+        case _ => fail("expected EndTurnOutput")
+
+    it("applyMoveAny returns the correct delta output for an initial placement"):
+      val move: PerfectInfoMove = InitialPlacementMove(Vertex(41), Edge(Vertex(40), Vertex(41)), 0)
+      val (out, state) = perfectInfoGame.applyMoveAny(move, initPerfect)
+      out match
+        case InitialPlacementCoreOutput(settlement, road, point, gains, bankLost, placement) =>
+          settlement shouldBe BoardBuildingState.AddBuilding(Vertex(41), 0, Settlement)
+          road shouldBe BoardBuildingState.AddBuilding(Edge(Vertex(40), Vertex(41)), 0, Road)
+          point shouldBe PlayerPoints.Increment(0)
+          gains shouldBe Nil
+          bankLost shouldBe Nil
+          placement shouldBe SetupPlacementOrder.Placement(0, Vertex(41))
+          state.playerPoints.points(0) shouldBe 1
+        case _ => fail("expected InitialPlacementCoreOutput")
+
   describe("PublicInfoGame"):
 
     it("applies an initial placement move"):
@@ -296,3 +341,45 @@ class BaseGameSpec extends AnyFunSpec with Matchers:
         DiscardMove(0, ResourceSet(WOOD, BRICK)), s0
       )
       s.publicInventories.m(0) shouldBe 6
+
+    it("replays a list of union-typed moves with applyMoveAny"):
+      val moves: List[PublicInfoMove] = List(
+        InitialPlacementMove(Vertex(41), Edge(Vertex(40), Vertex(41)), 0),
+        RollDiceMoveResult(0, 5),
+        EndTurnMove(0)
+      )
+      val state = moves.foldLeft(initPublic) { (s, m) =>
+        publicInfoGame.applyMoveAny(m, s)._2
+      }
+      state.playerPoints.points(0) shouldBe 1
+      state.turn.t shouldBe 1
+
+    it("applyMoveAny returns a value of the expected output union type"):
+      val move: PublicInfoMove = RollDiceMoveResult(0, 5)
+      val (out, _) = publicInfoGame.applyMoveAny(move, initPublic)
+      out match
+        case _: RollDiceOutput => // expected
+        case _                 => fail(s"unexpected output type: ${out.getClass.getSimpleName}")
+
+    it("applyMoveAny returns the correct delta output for an end turn"):
+      val move: PublicInfoMove = EndTurnMove(0)
+      val (out, state) = publicInfoGame.applyMoveAny(move, initPublic)
+      out match
+        case EndTurnOutput(delta) =>
+          delta shouldBe Turn.Delta(1)
+          state.turn.t shouldBe 1
+        case _ => fail("expected EndTurnOutput")
+
+    it("applyMoveAny returns the correct delta output for an initial placement"):
+      val move: PublicInfoMove = InitialPlacementMove(Vertex(41), Edge(Vertex(40), Vertex(41)), 0)
+      val (out, state) = publicInfoGame.applyMoveAny(move, initPublic)
+      out match
+        case InitialPlacementCoreOutput(settlement, road, point, gains, bankLost, placement) =>
+          settlement shouldBe BoardBuildingState.AddBuilding(Vertex(41), 0, Settlement)
+          road shouldBe BoardBuildingState.AddBuilding(Edge(Vertex(40), Vertex(41)), 0, Road)
+          point shouldBe PlayerPoints.Increment(0)
+          gains shouldBe Nil
+          bankLost shouldBe Nil
+          placement shouldBe SetupPlacementOrder.Placement(0, Vertex(41))
+          state.playerPoints.points(0) shouldBe 1
+        case _ => fail("expected InitialPlacementCoreOutput")

@@ -1,6 +1,8 @@
 # ImmutableSOC
 
-A Scala library for managing Settlers of Catan games with immutable state. ImmutableSOC provides a type-safe, functional implementation of Catan game rules, supporting both perfect information (server-side) and public information (player perspective) game modes.
+A Scala library for applying Settlers of Catan game events to immutable, type-safe game state. ImmutableSOC is a **replay applier**: it takes a sequence of moves that have already been validated by an authoritative rules engine and deterministically transforms state. It supports both perfect information (server-side) and public information (player perspective) game modes.
+
+> **Note:** This library does not enforce Catan rules. Move legality — resources, board placement, turn order, trade ratios, robber sequence, etc. — is the responsibility of the layer that produces the event stream. ImmutableSOC trusts its inputs and applies them.
 
 ## Installation
 
@@ -25,23 +27,54 @@ libraryDependencies += "io.github.soc-training-tool" %% "immutablesoc" % "0.0.7-
 ```scala
 import soc.base.BaseGame._
 import soc.base._
+import soc.base.state._
 import soc.core._
-import game._
-import shapeless._
+import soc.core.Resources._
+import soc.core.state._
+import soc.base.DevelopmentCards._
 
 // Create a game instance
-val game = PerfectInfoGame.game
+val game = perfectInfoGame
 
-// Initialize game state
-val board = BaseBoard(hexes, ports)
-val initState = ImmutableGame.initialize[PerfectInfoState]
-  .replaceAll(board :: Bank(bank) :: DevelopmentCardDeck(devDeck) :: robberLocation :: HNil)
-
-// Apply a move
-val newState = game.applyMove(
-  Coproduct[PerfectInfoMoves](RollDiceMoveResult(0, 5)),
-  initState
+// Initialize game state (construct it directly)
+val board = BaseBoard(
+  List[Hex[Resource]](
+    ResourceHex(WHEAT, 6), ResourceHex(ORE, 2), ResourceHex(SHEEP, 5),
+    ResourceHex(ORE, 8), ResourceHex(WOOD, 4), ResourceHex(BRICK, 11),
+    ResourceHex(SHEEP, 12), ResourceHex(ORE, 9), ResourceHex(SHEEP, 10),
+    ResourceHex(BRICK, 8), Desert, ResourceHex(WHEAT, 3),
+    ResourceHex(SHEEP, 9), ResourceHex(BRICK, 10), ResourceHex(WOOD, 3),
+    ResourceHex(WOOD, 6), ResourceHex(WHEAT, 5), ResourceHex(WOOD, 4),
+    ResourceHex(WHEAT, 11)
+  ),
+  ports = List(MISC, ORE, MISC, WHEAT, MISC, BRICK, WOOD, SHEEP, MISC)
 )
+
+val devDeck = List.fill(14)(KNIGHT) ++ List.fill(5)(POINT) ++
+              List.fill(2)(MONOPOLY) ++ List.fill(2)(ROAD_BUILDER) ++
+              List.fill(2)(YEAR_OF_PLENTY)
+
+val initState = PerfectInfoState(
+  robberLocation       = RobberLocation(10),
+  privateInventories   = PrivateInventories(Map.empty),
+  privateDevCardInv    = PrivateDevCardInv(Map.empty),
+  developmentCardDeck  = DevelopmentCardDeck(devDeck),
+  bank                 = Bank(InventorySet.fromMap(Map(WOOD -> 19, BRICK -> 19, SHEEP -> 19, WHEAT -> 19, ORE -> 19))),
+  turn                 = Turn(0),
+  playerPoints         = PlayerPoints(Map.empty),
+  largestArmyPlayer    = LargestArmyPlayer(None),
+  playerArmyCount      = PlayerArmyCount(Map.empty),
+  vertexBuildingState  = VertexBuildingState(Map.empty),
+  socRoadLengths       = SOCRoadLengths(Map.empty),
+  socLongestRoadPlayer = SOCLongestRoadPlayer(None),
+  board                = board,
+  edgeBuildingState    = EdgeBuildingState(Map.empty),
+  moveCount            = MoveCount(0),
+  setupPlacementOrder  = SetupPlacementOrder(Nil)
+)
+
+// Apply a validated move (the library trusts the move and applies it)
+  val newState = game.applyMove(RollDiceMoveResult(0, 5), initState)
 
 // Query state
 val points = newState.select[PlayerPoints]
@@ -69,6 +102,21 @@ Partial information variant where only public information is visible. Use this f
 
 Only resource/card counts are visible, not the specific cards each player holds.
 
+## Replay Applier Model
+
+ImmutableSOC is intentionally a thin **replay applier**, not an authoritative rules engine. Think of it as a deterministic state reducer for a stream of validated Catan events.
+
+- **Inputs are trusted.** The library assumes the move/event you pass in has already been validated by an authoritative layer (your game server, a rules engine, a referee, etc.). It will apply the move and produce new state without checking whether the move is legal.
+- **State transformation is pure.** Actions have no side effects, no randomness, and no I/O. The same move applied to the same state always yields the same output and next state.
+- **Derived scoring is computed.** The applier updates scores, inventories, buildings, and special awards based on the events it receives.
+- **Validation lives elsewhere.** If you need to enforce rules — checking resources, board placement, turn order, trade ratios, robber sequence, development-card timing — build that layer on top and feed only validated events into ImmutableSOC.
+
+This design makes the library useful for:
+- Replaying completed games from a log
+- Server-side state projection from validated commands
+- AI training and analysis where an external environment produces legal moves
+- Converting perfect-information server state into public or player-perspective views
+
 ## Core Concepts
 
 ### Immutable State
@@ -86,10 +134,10 @@ val playerPoints = state.select[PlayerPoints]
 ```
 
 ### Moves
-All moves are wrapped in Coproducts (type-safe unions):
+Moves are plain case-class values. The game instance is typed over a Scala 3 union of all supported moves, so you can pass any move directly:
 ```scala
-Coproduct[PerfectInfoMoves](BuildRoadMove(playerId, edge))
-Coproduct[PublicInfoMoves](TradeMove(player, partner, give, get))
+val perfectMove: PerfectInfoMove = BuildRoadMove(0, edge)
+val publicMove: PublicInfoMove   = TradeMove(0, 1, give, get)
 ```
 
 ### Applying Moves
@@ -130,102 +178,103 @@ val bank = InventorySet(Map(
 ))
 
 val devDeck = List.fill(14)(KNIGHT) ++
-              List.fill(5)(Point) ++
-              List.fill(2)(Monopoly) ++
-              List.fill(2)(RoadBuilder) ++
-              List.fill(2)(YearOfPlenty)
+              List.fill(5)(POINT) ++
+              List.fill(2)(MONOPOLY) ++
+              List.fill(2)(ROAD_BUILDER) ++
+              List.fill(2)(YEAR_OF_PLENTY)
 
 val robberLocation = RobberLocation(7) // Start on desert
 
-// Initialize Perfect Info Game
-val initState = ImmutableGame.initialize[PerfectInfoState]
-  .replaceAll(
-    board :: Bank(bank) :: DevelopmentCardDeck(devDeck) ::
-    robberLocation :: HNil
-  )
+// Initialize Perfect Info Game by constructing the state directly
+val initState = PerfectInfoState(
+  robberLocation       = robberLocation,
+  privateInventories   = PrivateInventories(Map.empty),
+  privateDevCardInv    = PrivateDevCardInv(Map.empty),
+  developmentCardDeck  = DevelopmentCardDeck(devDeck),
+  bank                 = Bank(bank),
+  turn                 = Turn(0),
+  playerPoints         = PlayerPoints(Map.empty),
+  largestArmyPlayer    = LargestArmyPlayer(None),
+  playerArmyCount      = PlayerArmyCount(Map.empty),
+  vertexBuildingState  = VertexBuildingState(Map.empty),
+  socRoadLengths       = SOCRoadLengths(Map.empty),
+  socLongestRoadPlayer = SOCLongestRoadPlayer(None),
+  board                = board,
+  edgeBuildingState    = EdgeBuildingState(Map.empty),
+  moveCount            = MoveCount(0),
+  setupPlacementOrder  = SetupPlacementOrder(Nil)
+)
 
 // Or initialize Public Info Game
-val publicState = ImmutableGame.initialize[PublicInfoState]
-  .replaceAll(
-    board :: Bank(bank) :: DevelopmentCardDeckSize(devDeck.size) ::
-    robberLocation :: HNil
-  )
+val publicState = PublicInfoState(
+  robberLocation          = robberLocation,
+  publicInventories       = PublicInventories(Map.empty),
+  publicDevCardInv        = PublicDevCardInv(Map.empty),
+  developmentCardDeckSize = DevelopmentCardDeckSize(devDeck.size),
+  bank                    = Bank(bank),
+  turn                    = Turn(0),
+  playerPoints            = PlayerPoints(Map.empty),
+  largestArmyPlayer       = LargestArmyPlayer(None),
+  playerArmyCount         = PlayerArmyCount(Map.empty),
+  vertexBuildingState     = VertexBuildingState(Map.empty),
+  socRoadLengths          = SOCRoadLengths(Map.empty),
+  socLongestRoadPlayer    = SOCLongestRoadPlayer(None),
+  board                   = board,
+  edgeBuildingState       = EdgeBuildingState(Map.empty),
+  moveCount               = MoveCount(0),
+  setupPlacementOrder     = SetupPlacementOrder(Nil)
+)
 ```
 
 ### Making Moves
 
 #### Initial Placement
 ```scala
-import shapeless._
-
 // First settlement and road for player 0
 val state1 = game.applyMove(
-  Coproduct[PerfectInfoMoves](
-    InitialPlacementMove(Vertex(33), Edge(4, 33), isFirstPlacement = true, 0)
-  ),
+  InitialPlacementMove(Vertex(33), Edge(4, 33), 0),
   initState
 )
 
 // Second settlement and road for player 0
 val state2 = game.applyMove(
-  Coproduct[PerfectInfoMoves](
-    InitialPlacementMove(Vertex(15), Edge(15, 38), isFirstPlacement = false, 0)
-  ),
+  InitialPlacementMove(Vertex(15), Edge(15, 38), 0),
   state1
 )
 ```
 
 #### Turn Actions
 ```scala
-// Roll dice
-val afterRoll = game.applyMove(
-  Coproduct[PerfectInfoMoves](RollDiceMoveResult(0, 8)),
-  currentState
-)
+// Roll dice (result is provided by the authoritative layer)
+val afterRoll = game.applyMove(RollDiceMoveResult(0, 8), currentState)
 
 // End turn
-val afterTurn = game.applyMove(
-  Coproduct[PerfectInfoMoves](EndTurnMove(0)),
-  afterRoll
-)
+val afterTurn = game.applyMove(EndTurnMove(0), afterRoll)
 ```
 
 #### Building
 ```scala
 // Build a road
-val withRoad = game.applyMove(
-  Coproduct[PerfectInfoMoves](BuildRoadMove(0, Edge(48, 49))),
-  currentState
-)
+val withRoad = game.applyMove(BuildRoadMove(0, Edge(48, 49)), currentState)
 
 // Build a settlement
-val withSettlement = game.applyMove(
-  Coproduct[PerfectInfoMoves](BuildSettlementMove(0, Vertex(48))),
-  withRoad
-)
+val withSettlement = game.applyMove(BuildSettlementMove(0, Vertex(48)), withRoad)
 
 // Build a city (upgrade settlement)
-val withCity = game.applyMove(
-  Coproduct[PerfectInfoMoves](BuildCityMove(0, Vertex(33))),
-  withSettlement
-)
+val withCity = game.applyMove(BuildCityMove(0, Vertex(33)), withSettlement)
 ```
 
 #### Trading
 ```scala
 // Port trade (4:1 generic port - 4 wheat for 1 wood)
 val afterPortTrade = game.applyMove(
-  Coproduct[PerfectInfoMoves](
-    PortTradeMove(0, ResourceSet(wh = 4), ResourceSet(wo = 1))
-  ),
+  PortTradeMove(0, ResourceSet(wh = 4), ResourceSet(wo = 1)),
   currentState
 )
 
 // Player-to-player trade (player 1 trades with player 3)
 val afterPlayerTrade = game.applyMove(
-  Coproduct[PublicInfoMoves](
-    TradeMove(1, 3, ResourceSet(WOOD), ResourceSet(WHEAT, SHEEP))
-  ),
+  TradeMove(1, 3, ResourceSet(WOOD), ResourceSet(WHEAT, SHEEP)),
   currentState
 )
 ```
@@ -234,76 +283,57 @@ val afterPlayerTrade = game.applyMove(
 ```scala
 // Buy a development card (perfect info shows which card)
 val afterBuy = game.applyMove(
-  Coproduct[PerfectInfoMoves](
-    PerfectInfoBuyDevelopmentCardMoveResult(0, KNIGHT)
-  ),
+  PerfectInfoBuyDevelopmentCardMoveResult(0, KNIGHT),
   currentState
 )
 
 // Buy a development card (public info hides the card)
 val afterPublicBuy = game.applyMove(
-  Coproduct[PublicInfoMoves](
-    BuyDevelopmentCardMoveResult[DevelopmentCard](0, None)
-  ),
+  BuyDevelopmentCardMoveResult[DevelopmentCard](0, None),
   publicState
 )
 
 // Play Knight card
 val afterKnight = game.applyMove(
-  Coproduct[PerfectInfoMoves](
-    PerfectInfoPlayKnightResult(
-      PerfectInfoRobberMoveResult(0, 13, Some(PlayerSteal(1, BRICK)))
-    )
+  PerfectInfoPlayKnightResult(
+    PerfectInfoRobberMoveResult(0, 13, Some(PlayerSteal(1, BRICK)))
   ),
   currentState
 )
 
 // Play Monopoly
 val afterMonopoly = game.applyMove(
-  Coproduct[PublicInfoMoves](
-    PlayMonopolyMoveResult(0, SHEEP, Map(1 -> 3, 2 -> 2, 3 -> 1))
-  ),
+  PlayMonopolyMoveResult(0, SHEEP, Map(1 -> 3, 2 -> 2, 3 -> 1)),
   publicState
 )
 
 // Play Year of Plenty
 val afterYOP = game.applyMove(
-  Coproduct[PublicInfoMoves](
-    PlayYearOfPlentyMove(0, WHEAT, WHEAT)
-  ),
+  PlayYearOfPlentyMove(0, WHEAT, WHEAT),
   publicState
 )
 
 // Play Road Builder
 val afterRoadBuilder = game.applyMove(
-  Coproduct[PublicInfoMoves](
-    PlayRoadBuilderMove(0, Edge(10, 33), Edge(33, 56))
-  ),
+  PlayRoadBuilderMove(0, Edge(10, 33), Some(Edge(33, 56))),
   publicState
 )
 
 // Play Victory Point card
-val afterPoint = game.applyMove(
-  Coproduct[PublicInfoMoves](PlayPointMove(0)),
-  publicState
-)
+val afterPoint = game.applyMove(PlayPointMove(0), publicState)
 ```
 
 #### Robber
 ```scala
 // Move robber and steal (perfect info shows exact card stolen)
 val afterRobber = game.applyMove(
-  Coproduct[PerfectInfoMoves](
-    PerfectInfoRobberMoveResult(0, 9, Some(PlayerSteal(1, BRICK)))
-  ),
+  PerfectInfoRobberMoveResult(0, 9, Some(PlayerSteal(1, BRICK))),
   currentState
 )
 
 // Move robber and steal (public info shows count only)
 val afterPublicRobber = game.applyMove(
-  Coproduct[PublicInfoMoves](
-    RobberMoveResult[Resource](0, 9, Some(PlayerSteal(1, Some(WHEAT))))
-  ),
+  RobberMoveResult[Resource](0, 9, Some(PlayerSteal(1, Some(WHEAT)))),
   publicState
 )
 ```
@@ -312,9 +342,7 @@ val afterPublicRobber = game.applyMove(
 ```scala
 // Discard cards when rolling 7 with >7 cards
 val afterDiscard = game.applyMove(
-  Coproduct[PerfectInfoMoves](
-    DiscardMove(1, ResourceSet(or = 3, br = 1))
-  ),
+  DiscardMove(1, ResourceSet(or = 3, br = 1)),
   currentState
 )
 ```
@@ -393,56 +421,68 @@ val largestArmy: LargestArmyPlayer =
 ```scala
 import soc.base.BaseGame._
 import soc.base._
+import soc.base.state._
 import soc.core._
-import game._
-import shapeless._
+import soc.core.Resources._
+import soc.core.state._
+import soc.base.DevelopmentCards._
 
 // 1. Setup
-val game = PerfectInfoGame.game
-val board = BaseBoard(standardHexes, standardPorts)
-val bank = InventorySet(Map(WOOD -> 19, BRICK -> 19, SHEEP -> 19, WHEAT -> 19, ORE -> 19))
-val devDeck = standardDevelopmentCardDeck
-val robberLocation = RobberLocation(7)
+val game = perfectInfoGame
+val board = BaseBoard(
+  List[Hex[Resource]](
+    ResourceHex(WHEAT, 6), ResourceHex(ORE, 2), ResourceHex(SHEEP, 5),
+    ResourceHex(ORE, 8), ResourceHex(WOOD, 4), ResourceHex(BRICK, 11),
+    ResourceHex(SHEEP, 12), ResourceHex(ORE, 9), ResourceHex(SHEEP, 10),
+    ResourceHex(BRICK, 8), Desert, ResourceHex(WHEAT, 3),
+    ResourceHex(SHEEP, 9), ResourceHex(BRICK, 10), ResourceHex(WOOD, 3),
+    ResourceHex(WOOD, 6), ResourceHex(WHEAT, 5), ResourceHex(WOOD, 4),
+    ResourceHex(WHEAT, 11)
+  ),
+  ports = List(MISC, ORE, MISC, WHEAT, MISC, BRICK, WOOD, SHEEP, MISC)
+)
+val bank = InventorySet.fromMap(Map(WOOD -> 19, BRICK -> 19, SHEEP -> 19, WHEAT -> 19, ORE -> 19))
+val devDeck = List.fill(14)(KNIGHT) ++ List.fill(5)(POINT) ++
+              List.fill(2)(MONOPOLY) ++ List.fill(2)(ROAD_BUILDER) ++
+              List.fill(2)(YEAR_OF_PLENTY)
+val robberLocation = RobberLocation(10)
 
-var state = ImmutableGame.initialize[PerfectInfoState]
-  .replaceAll(board :: Bank(bank) :: DevelopmentCardDeck(devDeck) :: robberLocation :: HNil)
+var state = PerfectInfoState(
+  robberLocation       = robberLocation,
+  privateInventories   = PrivateInventories(Map.empty),
+  privateDevCardInv    = PrivateDevCardInv(Map.empty),
+  developmentCardDeck  = DevelopmentCardDeck(devDeck),
+  bank                 = Bank(bank),
+  turn                 = Turn(0),
+  playerPoints         = PlayerPoints(Map.empty),
+  largestArmyPlayer    = LargestArmyPlayer(None),
+  playerArmyCount      = PlayerArmyCount(Map.empty),
+  vertexBuildingState  = VertexBuildingState(Map.empty),
+  socRoadLengths       = SOCRoadLengths(Map.empty),
+  socLongestRoadPlayer = SOCLongestRoadPlayer(None),
+  board                = board,
+  edgeBuildingState    = EdgeBuildingState(Map.empty),
+  moveCount            = MoveCount(0),
+  setupPlacementOrder  = SetupPlacementOrder(Nil)
+)
 
 // 2. Initial placement (4 players, 2 settlements each)
-state = game.applyMove(
-  Coproduct[PerfectInfoMoves](InitialPlacementMove(Vertex(33), Edge(4, 33), true, 0)),
-  state
-)
+state = game.applyMove(InitialPlacementMove(Vertex(33), Edge(4, 33), 0), state)
 // ... repeat for all players
 
 // 3. Start normal play
-state = game.applyMove(
-  Coproduct[PerfectInfoMoves](RollDiceMoveResult(0, 8)),
-  state
-)
+state = game.applyMove(RollDiceMoveResult(0, 8), state)
 
 // 4. Player actions
+state = game.applyMove(BuildRoadMove(0, Edge(48, 49)), state)
 state = game.applyMove(
-  Coproduct[PerfectInfoMoves](BuildRoadMove(0, Edge(48, 49))),
+  PortTradeMove(0, ResourceSet(WOOD, WOOD, WOOD, WOOD), ResourceSet(BRICK)),
   state
 )
-
-state = game.applyMove(
-  Coproduct[PerfectInfoMoves](
-    PortTradeMove(0, ResourceSet(WOOD, WOOD, WOOD, WOOD), ResourceSet(BRICK))
-  ),
-  state
-)
-
-state = game.applyMove(
-  Coproduct[PerfectInfoMoves](BuildSettlementMove(0, Vertex(48))),
-  state
-)
+state = game.applyMove(BuildSettlementMove(0, Vertex(48)), state)
 
 // 5. End turn
-state = game.applyMove(
-  Coproduct[PerfectInfoMoves](EndTurnMove(0)),
-  state
-)
+state = game.applyMove(EndTurnMove(0), state)
 
 // 6. Check game state
 val currentPoints = state.select[PlayerPoints]
@@ -450,6 +490,39 @@ val currentTurn = state.select[Turn]
 println(s"Player 0 points: ${currentPoints.points.getOrElse(0, 0)}")
 println(s"Turn: ${currentTurn.t}")
 ```
+
+## Future Enhancements
+
+The following improvements are natural extensions of the replay-applier design. They keep the core library focused on deterministic state transformation while making it more useful for replay, projection, and integration with an authoritative rules engine.
+
+### Replay applier hardening
+
+- **Event-consistency mode.** Optionally return `Either[InconsistentEvent, State]` when a move contradicts the current state (for example, a robber steal declaring a resource the victim does not have, or a monopoly declaring losses that do not match the victims' hands). This is useful for replay validators and test harnesses without turning the library into a rules engine.
+- **Graceful edge-case handling.** Avoid runtime exceptions on empty decks, malformed board inputs, or missing players; document the preconditions each action expects.
+- **Deterministic setup replay.** Fix second-round initial-resource grants by tracking setup placement order explicitly, instead of inferring it from `MoveCount`.
+- **Consistent special-card scoring.** Resolve whether victory-point development cards count immediately on purchase or only when explicitly revealed, and make the perfect-info and public-info interpretations agree.
+
+### Derived scoring and state computation
+
+- **Longest road integration.** Wire `SOCRoadLengths` and `SOCLongestRoadPlayer` updates into road-building and settlement-building actions so the applier computes the 2-point award automatically during replay.
+- **Largest army integration.** Update `PlayerArmyCount` and `LargestArmyPlayer` when knight cards are played.
+- **Game-over detection.** Add a `winner(state)` query (or `GameStatus` field) that reports when a player has reached 10 victory points, while still allowing further moves to be applied if desired.
+
+### Projection and multi-perspective replay
+
+- **Perfect-to-public projection.** Provide `PublicInfoState.fromPerfect(perfectState, viewerId)` and prove that replaying projected public moves produces the same public state as projecting the perfect state after every move.
+- **Player-perspective state.** Add an own-hand perspective that hides other players' cards while revealing the viewer's exact hand.
+
+### Authoritative layer (separate from this library)
+
+- A companion rules engine could sit above ImmutableSOC and decide which events are legal before they are applied. It would own validation such as:
+  - resource and building-piece availability,
+  - board placement rules (distance, connectivity, water vertices),
+  - turn order and phase gating,
+  - port-trade ratios and port access,
+  - robber sequence (discard half, valid hex/victim, no self-steal),
+  - development-card timing (one per turn, cannot play on purchase turn).
+- The authoritative layer would produce a validated event stream; ImmutableSOC would remain the pure state-reducer that consumes it.
 
 ## CI/CD
 
@@ -459,24 +532,23 @@ This project uses GitHub Actions for continuous integration and publishing.
 
 The CI workflow automatically runs tests and generates coverage reports on every push and pull request.
 
-### Publishing to Maven Central
+### Publishing to GitHub Packages
 
-Releases are automatically published to Maven Central using **conventional commits** for semantic versioning.
+Releases are automatically published to GitHub Packages using **conventional commits** for semantic versioning.
 
 #### How It Works
 
 When you merge to `master`, the release workflow:
 1. Analyzes commit messages since the last tag
 2. Determines version bump based on conventional commits:
-   - `fix:` commits → **patch** version bump (0.0.7 → 0.0.8)
-   - `feat:` commits → **minor** version bump (0.0.7 → 0.1.0)
-   - `BREAKING CHANGE:` or `feat!:` → **major** version bump (0.0.7 → 1.0.0)
+   - `fix:` commits → **patch** version bump
+   - `feat:` commits → **minor** version bump
+   - `BREAKING CHANGE:` or `feat!:` → **major** version bump
 3. Updates `build.sbt` with the new version
 4. Creates and pushes a git tag (e.g., `v0.0.8`)
 5. The publish workflow then:
    - Runs tests
-   - Signs artifacts with your GPG key
-   - Publishes to Maven Central via Sonatype
+   - Publishes to GitHub Packages using `GITHUB_TOKEN`
    - Creates a GitHub release
 
 #### Conventional Commit Format
@@ -517,30 +589,10 @@ git push origin v0.0.7
 
 #### Required GitHub Secrets
 
-The following secrets must be configured in your repository settings:
+The following secret must be configured in your repository settings:
 
-- `SONATYPE_USERNAME` - Your Sonatype JIRA username
-- `SONATYPE_PASSWORD` - Your Sonatype JIRA password
-- `PGP_SECRET` - Your GPG private key (base64-encoded)
-- `PGP_PASSPHRASE` - Your GPG key passphrase
-- `PGP_KEY_ID` - Your GPG key ID in hex format
-
-**To encode your GPG key:**
-```bash
-# Export your private key
-gpg --armor --export-secret-keys YOUR_KEY_ID > private-key.asc
-
-# Base64 encode it
-cat private-key.asc | base64 > private-key.base64
-
-# Copy the contents of private-key.base64 to the PGP_SECRET secret
-```
-
-**To get your key ID:**
-```bash
-gpg --list-secret-keys --keyid-format LONG
-# Use the long hex ID after 'sec   rsa4096/'
-```
+- `GITHUB_TOKEN` - Provided automatically by GitHub Actions; used to publish to GitHub Packages and create releases.
+- `PAT_TOKEN` - A personal access token with `contents:write` scope, used by the release workflow to push tags.
 
 ### Next Steps: Codecov Integration (Optional)
 

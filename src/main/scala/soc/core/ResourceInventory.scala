@@ -22,7 +22,10 @@ object ResourceInventories:
           case None           => Some(set.getTotal)
         })
       case Transactions.Lose(player, set) =>
-        PublicInventories(m.updatedWith(player)(_.map(_ - set.getTotal)))
+        PublicInventories(m.updatedWith(player) {
+          case Some(existing) => Some(existing - set.getTotal)
+          case None           => None
+        })
       case Transactions.ImperfectInfoExchange(from, to, _) =>
         val updated = for
           t <- m.get(to)
@@ -40,6 +43,8 @@ object ResourceInventories:
           case None           => Some(set)
         })
       case Transactions.Lose(player, set) =>
-        PrivateInventories(m.updatedWith(player)(_.map(_.subtract(set))))
-
+        PrivateInventories(m.updatedWith(player) {
+          case Some(existing) => Some(existing.subtract(set))
+          case None           => None
+        })
 

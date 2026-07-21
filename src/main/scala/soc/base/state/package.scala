@@ -25,20 +25,26 @@ package object state:
 
   case class DevelopmentCardDeckSize(size: Int) extends GameState[DevelopmentCardDeckSize]:
     override type Delta = DevelopmentCardDeck.Remove.type
-    override def apply(delta: Delta): DevelopmentCardDeckSize = DevelopmentCardDeckSize(size - 1)
+    override def apply(delta: Delta): DevelopmentCardDeckSize =
+      DevelopmentCardDeckSize(math.max(0, size - 1))
 
   case class DevelopmentCardDeck[Dev](cards: List[Dev]) extends GameState[DevelopmentCardDeck[Dev]]:
     override type Delta = DevelopmentCardDeck.Remove.type
-    override def apply(delta: Delta): DevelopmentCardDeck[Dev] = DevelopmentCardDeck(cards.tail)
+    override def apply(delta: Delta): DevelopmentCardDeck[Dev] = cards match
+      case _ :: tail => DevelopmentCardDeck(tail)
+      case Nil       => this
 
   object DevelopmentCardDeck:
     case object Remove
 
   case class SOCLongestRoadPlayer(player: Option[Int]) extends GameState[SOCLongestRoadPlayer]:
-    override type Delta = SpecialPlayer.Delta
+    override type Delta = SOCLongestRoadPlayer.Delta
     override def apply(delta: Delta): SOCLongestRoadPlayer = delta match
-      case SpecialPlayer.Set(p) => SOCLongestRoadPlayer(Some(p))
-      case SpecialPlayer.Remove => SOCLongestRoadPlayer(None)
+      case SOCLongestRoadPlayer.Delta(SpecialPlayer.Set(p)) => SOCLongestRoadPlayer(Some(p))
+      case SOCLongestRoadPlayer.Delta(SpecialPlayer.Remove) => SOCLongestRoadPlayer(None)
+
+  object SOCLongestRoadPlayer:
+    case class Delta(value: SpecialPlayer.Delta)
 
   case class SOCRoadLengths(m: PlayerMap[Int]) extends GameState[SOCRoadLengths]:
     override type Delta = SpecialCounts.Delta

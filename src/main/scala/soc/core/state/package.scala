@@ -12,6 +12,15 @@ package object state:
   object MoveCount:
     case class Delta(n: Int)
 
+  case class SetupPlacementOrder(placements: List[(Int, Vertex)])
+      extends GameState[SetupPlacementOrder]:
+    type Delta = SetupPlacementOrder.Placement
+    override def apply(delta: Delta): SetupPlacementOrder =
+      SetupPlacementOrder(placements :+ (delta.player -> delta.vertex))
+
+  object SetupPlacementOrder:
+    case class Placement(player: Int, vertex: Vertex)
+
   case class PlayerBuilding[+BB](player: Int, building: BB)
 
   object BoardBuildingState:
