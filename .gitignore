@@ -8,3 +8,6 @@ project/project/*
 .idea/*
 
 *.DS_Store
+
+.lavish/
+.omo/
