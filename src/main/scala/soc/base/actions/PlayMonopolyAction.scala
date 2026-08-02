@@ -24,5 +24,5 @@ class PlayMonopolyAction extends GameAction[PlayMonopolyMoveResult[Resource], Tu
     PlayMonopolyOutput(
       cardsLost   = loseDeltas,
       cardsGained = Gain(move.player, totalLost),
-      cardPlayed  = PlayCard(DevelopmentCards.MONOPOLY, move.player, input.turn.t)
+      cardPlayed  = PlayCard(DevelopmentCards.MONOPOLY, move.player, input.turn.number)
     )

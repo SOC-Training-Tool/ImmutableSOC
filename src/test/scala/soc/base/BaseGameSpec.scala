@@ -109,9 +109,9 @@ class BaseGameSpec extends AnyFunSpec with Matchers:
 
     it("applies roll dice and end turn"):
       val (_, s1) = perfectInfoGame.applyMove(RollDiceMoveResult(0, 5), initPerfect)
-      s1.turn.t shouldBe 0
+      s1.turn.number shouldBe 0
       val (_, s2) = perfectInfoGame.applyMove(EndTurnMove(0), s1)
-      s2.turn.t shouldBe 1
+      s2.turn.number shouldBe 1
 
     it("applies a build settlement move"):
       val s0 = initPerfect.copy(
@@ -228,7 +228,7 @@ class BaseGameSpec extends AnyFunSpec with Matchers:
         perfectInfoGame.applyMoveAny(m, s)._2
       }
       state.playerPoints.points(0) shouldBe 1
-      state.turn.t shouldBe 1
+      state.turn.number shouldBe 1
 
     it("applyMoveAny returns a value of the expected output union type"):
       val move: PerfectInfoMove = RollDiceMoveResult(0, 5)
@@ -243,7 +243,7 @@ class BaseGameSpec extends AnyFunSpec with Matchers:
       out match
         case EndTurnOutput(delta) =>
           delta shouldBe Turn.Delta(1)
-          state.turn.t shouldBe 1
+          state.turn.number shouldBe 1
         case _ => fail("expected EndTurnOutput")
 
     it("applyMoveAny returns the correct delta output for an initial placement"):
@@ -270,7 +270,7 @@ class BaseGameSpec extends AnyFunSpec with Matchers:
     it("applies roll dice and end turn"):
       val (_, s1) = publicInfoGame.applyMove(RollDiceMoveResult(0, 5), initPublic)
       val (_, s2) = publicInfoGame.applyMove(EndTurnMove(0), s1)
-      s2.turn.t shouldBe 1
+      s2.turn.number shouldBe 1
 
     it("applies a public robber move with steal"):
       val s0 = initPublic.copy(
@@ -352,7 +352,7 @@ class BaseGameSpec extends AnyFunSpec with Matchers:
         publicInfoGame.applyMoveAny(m, s)._2
       }
       state.playerPoints.points(0) shouldBe 1
-      state.turn.t shouldBe 1
+      state.turn.number shouldBe 1
 
     it("applyMoveAny returns a value of the expected output union type"):
       val move: PublicInfoMove = RollDiceMoveResult(0, 5)
@@ -367,7 +367,7 @@ class BaseGameSpec extends AnyFunSpec with Matchers:
       out match
         case EndTurnOutput(delta) =>
           delta shouldBe Turn.Delta(1)
-          state.turn.t shouldBe 1
+          state.turn.number shouldBe 1
         case _ => fail("expected EndTurnOutput")
 
     it("applyMoveAny returns the correct delta output for an initial placement"):

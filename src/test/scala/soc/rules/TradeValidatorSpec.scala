@@ -16,19 +16,19 @@ import soc.rules.validators.TradeValidator
 
 class TradeValidatorSpec extends AnyFunSpec with Matchers:
 
-  private val cached = new CachedBoard[Resource](BaseGameFixtures.perfectInfoFixture.board)
+  private val board = BaseGameFixtures.perfectInfoFixture.board
 
   describe("port trade ranges"):
 
     it("always includes the 4:1 domestic trade"):
-      val params = TradeValidator.portTradeParams(0, initPerfect.vertexBuildingState, cached)
+      val params = TradeValidator.portTradeParams(0, initPerfect.vertexBuildingState, board)
       params.ratios should contain (4 -> Misc)
 
     it("exposes 2:1 ratios only for ports the player has settled"):
       val state = initPerfect.copy(
         vertexBuildingState = VertexBuildingState(Map(Vertex(3) -> PlayerBuilding(0, Settlement)))
       )
-      val params = TradeValidator.portTradeParams(0, state.vertexBuildingState, cached)
+      val params = TradeValidator.portTradeParams(0, state.vertexBuildingState, board)
       params.ratios should contain (2 -> Ore)
       params.ratios should not contain (2 -> Wood)
 
@@ -36,7 +36,7 @@ class TradeValidatorSpec extends AnyFunSpec with Matchers:
       val state = initPerfect.copy(
         vertexBuildingState = VertexBuildingState(Map(Vertex(7) -> PlayerBuilding(0, Settlement)))
       )
-      val params = TradeValidator.portTradeParams(0, state.vertexBuildingState, cached)
+      val params = TradeValidator.portTradeParams(0, state.vertexBuildingState, board)
       params.ratios should contain (3 -> Misc)
 
   describe("isLegalPortTrade"):
@@ -48,7 +48,7 @@ class TradeValidatorSpec extends AnyFunSpec with Matchers:
       )
       val inv = new PerfectInfoResourceView(state)
       val move = PortTradeMove[Resource](0, ResourceSet(or = 2), ResourceSet(wo = 1))
-      TradeValidator.isLegalPortTrade(0, inv, state.vertexBuildingState, cached, move) shouldBe true
+      TradeValidator.isLegalPortTrade(0, inv, state.vertexBuildingState, board, move) shouldBe true
 
     it("rejects a 2:1 trade without the matching port"):
       val state = initPerfect.copy(
@@ -56,7 +56,7 @@ class TradeValidatorSpec extends AnyFunSpec with Matchers:
       )
       val inv = new PerfectInfoResourceView(state)
       val move = PortTradeMove[Resource](0, ResourceSet(or = 2), ResourceSet(wo = 1))
-      TradeValidator.isLegalPortTrade(0, inv, state.vertexBuildingState, cached, move) shouldBe false
+      TradeValidator.isLegalPortTrade(0, inv, state.vertexBuildingState, board, move) shouldBe false
 
     it("accepts a 4:1 trade without any port"):
       val state = initPerfect.copy(
@@ -64,7 +64,7 @@ class TradeValidatorSpec extends AnyFunSpec with Matchers:
       )
       val inv = new PerfectInfoResourceView(state)
       val move = PortTradeMove[Resource](0, ResourceSet(wo = 4), ResourceSet(or = 1))
-      TradeValidator.isLegalPortTrade(0, inv, state.vertexBuildingState, cached, move) shouldBe true
+      TradeValidator.isLegalPortTrade(0, inv, state.vertexBuildingState, board, move) shouldBe true
 
     it("rejects a trade the player cannot afford"):
       val state = initPerfect.copy(
@@ -72,7 +72,7 @@ class TradeValidatorSpec extends AnyFunSpec with Matchers:
       )
       val inv = new PerfectInfoResourceView(state)
       val move = PortTradeMove[Resource](0, ResourceSet(wo = 4), ResourceSet(or = 1))
-      TradeValidator.isLegalPortTrade(0, inv, state.vertexBuildingState, cached, move) shouldBe false
+      TradeValidator.isLegalPortTrade(0, inv, state.vertexBuildingState, board, move) shouldBe false
 
   describe("player trade ranges"):
 

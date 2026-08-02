@@ -63,10 +63,10 @@ package object state:
     case class Add[II](inv: InventorySet[II, Int])
     case class Take[II](inv: InventorySet[II, Int])
 
-  case class Turn(t: Int) extends GameState[Turn]:
+  case class Turn(number: Int) extends GameState[Turn]:
     import Turn.Delta
     override type Delta = Turn.Delta
-    override def apply(delta: Delta): Turn = Turn(t + delta.n)
+    override def apply(delta: Delta): Turn = Turn(number + delta.n)
 
   object Turn:
     case class Delta(n: Int)

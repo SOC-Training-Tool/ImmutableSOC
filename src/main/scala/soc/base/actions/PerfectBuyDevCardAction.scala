@@ -23,7 +23,7 @@ class PerfectBuyDevCardAction extends GameAction[PerfectInfoBuyDevelopmentCardMo
     PerfectBuyDevCardOutput(
       resourcesSpent    = Lose(move.player, DEV_CARD_COST),
       resourcesReturned = Bank.Add(DEV_CARD_COST),
-      cardBought        = PerfectInfoBuyCard(move.card, move.player, input.turn.t),
+      cardBought        = PerfectInfoBuyCard(move.card, move.player, input.turn.number),
       deckShrunk        = DevelopmentCardDeck.Remove,
       bonusPoint        = if move.card == POINT then Some(PlayerPoints.Increment(move.player)) else None
     )

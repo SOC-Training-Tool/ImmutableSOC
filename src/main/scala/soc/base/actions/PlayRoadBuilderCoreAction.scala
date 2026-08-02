@@ -38,7 +38,7 @@ class PlayRoadBuilderCoreAction extends GameAction[PlayRoadBuilderMove, PlayRoad
       roadLengthChanges        = changes.roadLengthChanges,
       longestRoadPlayerChanges = changes.longestRoadPlayerChanges,
       longestRoadPointChanges  = changes.pointChanges,
-      cardPlayed               = PlayCard(DevelopmentCards.ROAD_BUILDER, move.player, input.turn.t)
+      cardPlayed               = PlayCard(DevelopmentCards.ROAD_BUILDER, move.player, input.turn.number)
     )
 
   def apply(move: PlayRoadBuilderMove, input: TurnInput): PlayRoadBuilderCoreOutput =
@@ -48,5 +48,5 @@ class PlayRoadBuilderCoreAction extends GameAction[PlayRoadBuilderMove, PlayRoad
       Nil,
       Nil,
       Nil,
-      PlayCard(DevelopmentCards.ROAD_BUILDER, move.player, input.turn.t)
+      PlayCard(DevelopmentCards.ROAD_BUILDER, move.player, input.turn.number)
     )

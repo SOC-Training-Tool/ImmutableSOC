@@ -6,20 +6,19 @@ import soc.base.state.*
 import soc.core.*
 import soc.core.state.*
 import soc.rules.*
-import soc.rules.CachedBoard
 
 object BuildingValidator:
 
   def roadMoves(
     player: Int,
-    inv: CachedBoard.ResourceView,
+    inv: ResourceView,
     edgeState: EdgeBuildingState[BaseEdgeBuilding],
     vertexState: VertexBuildingState[BaseVertexBuilding],
-    cached: CachedBoard[Resource]
+    board: BaseBoard[Resource]
   ): Seq[BuildRoadMove] =
-    if !inv.hasEnough(player, CachedBoard.ROAD_COST) then Nil
+    if !inv.hasEnough(player, ROAD_COST) then Nil
     else
-      roadPlacementEdges(player, edgeState, vertexState, cached)
+      roadPlacementEdges(player, edgeState, vertexState, board)
         .filter(_ => roadCount(player, edgeState) < 15)
         .map(edge => BuildRoadMove(player, edge))
 
@@ -27,34 +26,34 @@ object BuildingValidator:
     player: Int,
     edgeState: EdgeBuildingState[BaseEdgeBuilding],
     vertexState: VertexBuildingState[BaseVertexBuilding],
-    cached: CachedBoard[Resource]
+    board: BaseBoard[Resource]
   ): Seq[Edge] =
-    cached.edges.filter { edge =>
+    board.edges.filter { edge =>
       edgeState.map.get(edge).isEmpty && connectedToNetwork(player, edge, edgeState, vertexState)
     }
 
   def settlementMoves(
     player: Int,
-    inv: CachedBoard.ResourceView,
+    inv: ResourceView,
     vertexState: VertexBuildingState[BaseVertexBuilding],
     edgeState: EdgeBuildingState[BaseEdgeBuilding],
-    cached: CachedBoard[Resource]
+    board: BaseBoard[Resource]
   ): Seq[BuildSettlementMove] =
-    if !inv.hasEnough(player, CachedBoard.SETTLEMENT_COST) then Nil
+    if !inv.hasEnough(player, SETTLEMENT_COST) then Nil
     else
-      cached.vertices.filter { vertex =>
-        SetupValidator.distanceRuleOk(vertex, vertexState, cached) &&
+      board.vertices.filter { vertex =>
+        SetupValidator.distanceRuleOk(vertex, vertexState, board) &&
           hasAdjacentRoad(player, vertex, edgeState) &&
           settlementCityCount(player, vertexState) < 5
       }.map(vertex => BuildSettlementMove(player, vertex))
 
   def cityMoves(
     player: Int,
-    inv: CachedBoard.ResourceView,
+    inv: ResourceView,
     vertexState: VertexBuildingState[BaseVertexBuilding],
-    cached: CachedBoard[Resource]
+    board: BaseBoard[Resource]
   ): Seq[BuildCityMove] =
-    if !inv.hasEnough(player, CachedBoard.CITY_COST) then Nil
+    if !inv.hasEnough(player, CITY_COST) then Nil
     else if cityCount(player, vertexState) >= 4 then Nil
     else
       vertexState.map.collect {

@@ -6,23 +6,22 @@ import soc.base.state.*
 import soc.core.*
 import soc.core.state.*
 import soc.rules.*
-import soc.rules.CachedBoard
 
 object RobberValidator:
 
   case class RobberPlacement(hexId: Int, victims: Seq[Int])
 
-  def validHexes(cached: CachedBoard[Resource], robberLocation: RobberLocation): Seq[Int] =
-    cached.hexesWithNodes.map(_.node).filter(_ != robberLocation.robberHexId)
+  def validHexes(board: BaseBoard[Resource], robberLocation: RobberLocation): Seq[Int] =
+    board.hexesWithNodes.map(_.node).filter(_ != robberLocation.robberHexId)
 
   def stealTargets(
     hexId: Int,
     player: Int,
-    cached: CachedBoard[Resource],
+    board: BaseBoard[Resource],
     vertexState: VertexBuildingState[BaseVertexBuilding],
-    inv: CachedBoard.ResourceView
+    inv: ResourceView
   ): Seq[Int] =
-    cached.hexToVertices
+    board.hexToVertices
       .getOrElse(hexId, Nil)
       .flatMap(v => vertexState.map.get(v).filter(pb => pb.player != player))
       .map(_.player)
@@ -32,22 +31,22 @@ object RobberValidator:
   def placements(
     player: Int,
     robberLocation: RobberLocation,
-    cached: CachedBoard[Resource],
+    board: BaseBoard[Resource],
     vertexState: VertexBuildingState[BaseVertexBuilding],
-    inv: CachedBoard.ResourceView
+    inv: ResourceView
   ): Seq[RobberPlacement] =
-    validHexes(cached, robberLocation).map { hex =>
-      RobberPlacement(hex, stealTargets(hex, player, cached, vertexState, inv))
+    validHexes(board, robberLocation).map { hex =>
+      RobberPlacement(hex, stealTargets(hex, player, board, vertexState, inv))
     }
 
   def robberMoves(
     player: Int,
     robberLocation: RobberLocation,
-    cached: CachedBoard[Resource],
+    board: BaseBoard[Resource],
     vertexState: VertexBuildingState[BaseVertexBuilding],
-    inv: CachedBoard.ResourceView
+    inv: ResourceView
   ): Seq[RobberMoveResult[Resource]] =
-    placements(player, robberLocation, cached, vertexState, inv).flatMap {
+    placements(player, robberLocation, board, vertexState, inv).flatMap {
       case RobberPlacement(hex, victims) if victims.nonEmpty =>
         victims.map(v => RobberMoveResult[Resource](player, hex, Some(PlayerSteal[Option[Resource]](v, None))))
       case RobberPlacement(hex, _) =>

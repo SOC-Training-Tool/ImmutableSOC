@@ -698,7 +698,7 @@ class GameActionSpec extends AnyFunSpec with Matchers {
   // ── TurnInput integration tests ────────────────────────────────────────────
 
   describe("TurnInput usage across actions") {
-    it("PerfectBuyDevCardAction uses TurnInput.turn.t for card purchase turn") {
+    it("PerfectBuyDevCardAction uses TurnInput.turn.number for card purchase turn") {
       val action = PerfectBuyDevCardAction()
       val move   = PerfectInfoBuyDevelopmentCardMoveResult(0, KNIGHT)
       val input  = TurnInput(Turn(7))
@@ -706,13 +706,13 @@ class GameActionSpec extends AnyFunSpec with Matchers {
       result.cardBought shouldBe PerfectInfoBuyCard(KNIGHT, 0, 7)
     }
 
-    it("PlayPointAction uses TurnInput.turn.t for card play turn") {
+    it("PlayPointAction uses TurnInput.turn.number for card play turn") {
       val action = PlayPublicPointAction()
       val result = action(PlayPointMove(1), TurnInput(Turn(3)))
       result.cardPlayed shouldBe PlayCard(DevelopmentCards.POINT, 1, 3)
     }
 
-    it("RemoveKnightCardAction uses TurnInput.turn.t") {
+    it("RemoveKnightCardAction uses TurnInput.turn.number") {
       val action = RemoveKnightCardAction()
       val result = action(2, TurnInput(Turn(4)))
       result.cardPlayed shouldBe PlayCard(Knight, 2, 4)

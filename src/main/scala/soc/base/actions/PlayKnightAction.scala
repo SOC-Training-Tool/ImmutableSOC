@@ -37,7 +37,7 @@ class PlayPerfectKnightAction extends GameAction[PerfectInfoPlayKnightResult[Res
       move.inner.player
     )
     PlayPerfectKnightOutput(
-      cardPlayed              = PlayCard(DevelopmentCards.KNIGHT, move.inner.player, input.turn.t),
+      cardPlayed              = PlayCard(DevelopmentCards.KNIGHT, move.inner.player, input.turn.number),
       newRobberLocation       = RobberLocation.Delta(move.inner.robberHexId),
       steals                  = stealDeltas,
       playerArmyCountChange   = Some(SpecialCounts.Increment(move.inner.player)),
@@ -68,7 +68,7 @@ class PlayPublicKnightAction extends GameAction[PlayKnightResult[Resource], Knig
       move.inner.player
     )
     PlayPublicKnightOutput(
-      cardPlayed              = PlayCard(DevelopmentCards.KNIGHT, move.inner.player, input.turn.t),
+      cardPlayed              = PlayCard(DevelopmentCards.KNIGHT, move.inner.player, input.turn.number),
       newRobberLocation       = RobberLocation.Delta(move.inner.robberHexId),
       steal                   = stealDelta,
       playerArmyCountChange   = Some(SpecialCounts.Increment(move.inner.player)),

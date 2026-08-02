@@ -1,16 +1,33 @@
 package soc
 
+import game.InventorySet
 import soc.base.*
 import soc.base.BaseGame.*
 import soc.base.DevelopmentCards.POINT
 import soc.base.state.*
 import soc.core.*
+import soc.core.ResourceSet.*
+import soc.core.Resources.*
 import soc.core.state.*
 
 package object rules:
 
   type BaseVertexBuilding = City.type | Settlement.type
   type BaseEdgeBuilding   = Road.type
+
+  trait ResourceView:
+    def getTotal(player: Int): Int
+    def hasEnough(player: Int, resources: InventorySet[Resource, Int]): Boolean
+    def resourceAmount(player: Int, resource: Resource): Int
+
+  trait DevCardView:
+    def hasUnexpiredCard(player: Int, card: DevelopmentCard, currentTurn: Int): Boolean
+    def deckNonEmpty: Boolean
+
+  val ROAD_COST: Resources       = ResourceSet(WOOD, BRICK)
+  val SETTLEMENT_COST: Resources = ResourceSet(WOOD, BRICK, WHEAT, SHEEP)
+  val CITY_COST: Resources       = ResourceSet(ORE, ORE, ORE, WHEAT, WHEAT)
+  val DEV_CARD_COST: Resources   = ResourceSet(ORE, WHEAT, SHEEP)
 
   object PhaseMachine:
 
@@ -67,9 +84,9 @@ package object rules:
       placements == 0 || placements < players * 2
 
     def activePlayer(state: PerfectInfoState): Int =
-      activePlayerFrom(state.setupPlacementOrder.placements.map(_._1), state.turn.t, numPlayers(state))
+      activePlayerFrom(state.setupPlacementOrder.placements.map(_._1), state.turn.number, numPlayers(state))
     def activePlayer(state: PublicInfoState): Int =
-      activePlayerFrom(state.setupPlacementOrder.placements.map(_._1), state.turn.t, numPlayers(state))
+      activePlayerFrom(state.setupPlacementOrder.placements.map(_._1), state.turn.number, numPlayers(state))
 
     private def activePlayerFrom(placedPlayers: Seq[Int], turn: Int, players: Int): Int =
       if inSetupFrom(placedPlayers.length, players) then setupActivePlayer(placedPlayers, players)

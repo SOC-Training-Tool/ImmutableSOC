@@ -22,6 +22,6 @@ class PublicBuyDevCardAction extends GameAction[BuyDevelopmentCardMoveResult[Dev
     PublicBuyDevCardOutput(
       resourcesSpent    = Lose(move.player, DEV_CARD_COST),
       resourcesReturned = Bank.Add(DEV_CARD_COST),
-      cardBought        = ImperfectInfoBuyCard(move.card, move.player, input.turn.t),
+      cardBought        = ImperfectInfoBuyCard(move.card, move.player, input.turn.number),
       deckShrunk        = DevelopmentCardDeck.Remove
     )

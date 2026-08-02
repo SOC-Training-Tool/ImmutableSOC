@@ -5,7 +5,6 @@ import game.InventorySet
 import soc.base.*
 import soc.core.*
 import soc.rules.*
-import soc.rules.CachedBoard
 
 object TurnValidator:
 
@@ -15,7 +14,7 @@ object TurnValidator:
         Seq(EndTurnMove(player))
       case _ => Nil
 
-  def discardMoves(player: Int, inv: CachedBoard.ResourceView): Seq[DiscardMove[Resource]] =
+  def discardMoves(player: Int, inv: ResourceView): Seq[DiscardMove[Resource]] =
     val total = inv.getTotal(player)
     if total <= 7 then Nil
     else
@@ -24,7 +23,7 @@ object TurnValidator:
 
   private def discardCombinations(
     player: Int,
-    inv: CachedBoard.ResourceView,
+    inv: ResourceView,
     amount: Int
   ): Seq[InventorySet[Resource, Int]] =
     def gen(resources: List[Resource], remaining: Int, acc: Map[Resource, Int]): Seq[Map[Resource, Int]] =

@@ -14,5 +14,5 @@ case class PlayPerfectPointOutput(
 class PlayPerfectPointAction extends GameAction[PlayPointMove, TurnInput, PlayPerfectPointOutput]:
   def apply(move: PlayPointMove, input: TurnInput): PlayPerfectPointOutput =
     PlayPerfectPointOutput(
-      cardPlayed = PlayCard(DevelopmentCards.POINT, move.player, input.turn.t)
+      cardPlayed = PlayCard(DevelopmentCards.POINT, move.player, input.turn.number)
     )

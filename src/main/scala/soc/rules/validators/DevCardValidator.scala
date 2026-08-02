@@ -8,18 +8,17 @@ import soc.core.*
 import soc.core.ResourceInventories.*
 import soc.core.state.*
 import soc.rules.*
-import soc.rules.CachedBoard
 import RobberValidator.*
 
 object DevCardValidator:
 
-  def canBuy(player: Int, inv: CachedBoard.ResourceView, devView: CachedBoard.DevCardView): Boolean =
-    inv.hasEnough(player, CachedBoard.DEV_CARD_COST) && devView.deckNonEmpty
+  def canBuy(player: Int, inv: ResourceView, devView: DevCardView): Boolean =
+    inv.hasEnough(player, DEV_CARD_COST) && devView.deckNonEmpty
 
   def canPlay(
     player: Int,
     turnMoves: Seq[Any],
-    devView: CachedBoard.DevCardView,
+    devView: DevCardView,
     card: DevelopmentCard,
     currentTurn: Int
   ): Boolean =
@@ -28,8 +27,8 @@ object DevCardValidator:
 
   def buyMoves[Card](
     player: Int,
-    inv: CachedBoard.ResourceView,
-    devView: CachedBoard.DevCardView,
+    inv: ResourceView,
+    devView: DevCardView,
     topCard: Option[Card]
   ): Seq[BuyDevelopmentCardMoveResult[Card]] =
     if canBuy(player, inv, devView) then topCard.toSeq.map(c => BuyDevelopmentCardMoveResult(player, Some(c)))
@@ -37,8 +36,8 @@ object DevCardValidator:
 
   def perfectBuyMoves[Card](
     player: Int,
-    inv: CachedBoard.ResourceView,
-    devView: CachedBoard.DevCardView,
+    inv: ResourceView,
+    devView: DevCardView,
     topCard: Option[Card]
   ): Seq[PerfectInfoBuyDevelopmentCardMoveResult[Card]] =
     if canBuy(player, inv, devView) then topCard.toSeq.map(c => PerfectInfoBuyDevelopmentCardMoveResult(player, c))
@@ -47,16 +46,16 @@ object DevCardValidator:
   def playKnightMoves(
     player: Int,
     turnMoves: Seq[Any],
-    devView: CachedBoard.DevCardView,
+    devView: DevCardView,
     currentTurn: Int,
     robberLocation: RobberLocation,
-    cached: CachedBoard[Resource],
+    board: BaseBoard[Resource],
     vertexState: VertexBuildingState[BaseVertexBuilding],
-    inv: CachedBoard.ResourceView
+    inv: ResourceView
   ): Seq[PlayKnightResult[Resource]] =
     if !canPlay(player, turnMoves, devView, KNIGHT, currentTurn) then Nil
     else
-      RobberValidator.placements(player, robberLocation, cached, vertexState, inv).flatMap {
+      RobberValidator.placements(player, robberLocation, board, vertexState, inv).flatMap {
         case RobberPlacement(hex, victims) if victims.nonEmpty =>
           victims.map(v => PlayKnightResult(RobberMoveResult[Resource](player, hex, Some(PlayerSteal[Option[Resource]](v, None)))))
         case RobberPlacement(hex, _) =>
@@ -66,17 +65,17 @@ object DevCardValidator:
   def perfectPlayKnightMoves(
     player: Int,
     turnMoves: Seq[Any],
-    devView: CachedBoard.DevCardView,
+    devView: DevCardView,
     currentTurn: Int,
     robberLocation: RobberLocation,
-    cached: CachedBoard[Resource],
+    board: BaseBoard[Resource],
     vertexState: VertexBuildingState[BaseVertexBuilding],
-    inv: CachedBoard.ResourceView,
+    inv: ResourceView,
     stealResource: Int => Option[Resource]
   ): Seq[PerfectInfoPlayKnightResult[Resource]] =
     if !canPlay(player, turnMoves, devView, KNIGHT, currentTurn) then Nil
     else
-      RobberValidator.placements(player, robberLocation, cached, vertexState, inv).flatMap {
+      RobberValidator.placements(player, robberLocation, board, vertexState, inv).flatMap {
         case RobberPlacement(hex, victims) if victims.nonEmpty =>
           victims.map { v =>
             val stolen = stealResource(v).map(res => PlayerSteal[Resource](v, res))
@@ -89,7 +88,7 @@ object DevCardValidator:
   def playMonopolyMoves(
     player: Int,
     turnMoves: Seq[Any],
-    devView: CachedBoard.DevCardView,
+    devView: DevCardView,
     currentTurn: Int
   ): Seq[PlayMonopolyMoveResult[Resource]] =
     if !canPlay(player, turnMoves, devView, MONOPOLY, currentTurn) then Nil
@@ -98,7 +97,7 @@ object DevCardValidator:
   def perfectPlayMonopolyMoves(
     player: Int,
     turnMoves: Seq[Any],
-    devView: CachedBoard.DevCardView,
+    devView: DevCardView,
     currentTurn: Int,
     privateInventories: PrivateInventories[Resource]
   ): Seq[PlayMonopolyMoveResult[Resource]] =
@@ -114,7 +113,7 @@ object DevCardValidator:
   def playYearOfPlentyMoves(
     player: Int,
     turnMoves: Seq[Any],
-    devView: CachedBoard.DevCardView,
+    devView: DevCardView,
     currentTurn: Int
   ): Seq[PlayYearOfPlentyMove[Resource]] =
     if !canPlay(player, turnMoves, devView, YEAR_OF_PLENTY, currentTurn) then Nil
@@ -123,20 +122,20 @@ object DevCardValidator:
   def playRoadBuilderMoves(
     player: Int,
     turnMoves: Seq[Any],
-    devView: CachedBoard.DevCardView,
+    devView: DevCardView,
     currentTurn: Int,
     edgeState: EdgeBuildingState[BaseEdgeBuilding],
     vertexState: VertexBuildingState[BaseVertexBuilding],
-    cached: CachedBoard[Resource]
+    board: BaseBoard[Resource]
   ): Seq[PlayRoadBuilderMove] =
     if !canPlay(player, turnMoves, devView, ROAD_BUILDER, currentTurn) then Nil
     else
-      val firstEdges = BuildingValidator.roadPlacementEdges(player, edgeState, vertexState, cached)
+      val firstEdges = BuildingValidator.roadPlacementEdges(player, edgeState, vertexState, board)
         .filter(_ => BuildingValidator.roadCount(player, edgeState) < 15)
       firstEdges.flatMap { e1 =>
         val withFirst = EdgeBuildingState(edgeState.map + (e1 -> PlayerBuilding(player, Road)))
         val single = Seq(PlayRoadBuilderMove(player, e1, None))
-        val secondEdges = BuildingValidator.roadPlacementEdges(player, withFirst, vertexState, cached)
+        val secondEdges = BuildingValidator.roadPlacementEdges(player, withFirst, vertexState, board)
           .filter(_ => BuildingValidator.roadCount(player, edgeState) < 14)
         single ++ secondEdges.map(e2 => PlayRoadBuilderMove(player, e1, Some(e2)))
       }

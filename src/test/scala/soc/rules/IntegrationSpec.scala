@@ -54,7 +54,7 @@ class IntegrationSpec extends AnyFunSpec with Matchers:
       val state = afterPerfect((setupMoves ++ List(RollDiceMoveResult(0, 5))): _*)
       val turnMoves = setupMoves :+ RollDiceMoveResult(0, 5)
       val flat = PerfectInfoLegalMoves.legalMoves(state, 0, turnMoves)
-      val grouped = PerfectInfoLegalMoves.legalMovesGrouped(state, 0, turnMoves)
+      val grouped = flat.groupBy(_.getClass)
       grouped.values.flatten.toSeq should contain theSameElementsAs flat
       grouped.keys.foreach(k => k shouldBe a[Class[?]])
 

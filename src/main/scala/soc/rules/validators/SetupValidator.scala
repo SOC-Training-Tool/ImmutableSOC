@@ -6,7 +6,6 @@ import soc.base.state.*
 import soc.core.*
 import soc.core.state.*
 import soc.rules.*
-import soc.rules.CachedBoard
 
 object SetupValidator:
 
@@ -16,15 +15,15 @@ object SetupValidator:
     setupPlacementOrder: SetupPlacementOrder,
     vertexBuildingState: VertexBuildingState[BaseVertexBuilding],
     edgeBuildingState: EdgeBuildingState[BaseEdgeBuilding],
-    cached: CachedBoard[Resource]
+    board: BaseBoard[Resource]
   ): Seq[InitialPlacementMove] =
     val placedPlayers = setupPlacementOrder.placements.map(_._1)
     if player != PhaseMachine.setupActivePlayer(placedPlayers, numPlayers) then Nil
     else
-      cached.vertices.flatMap { vertex =>
-        if !distanceRuleOk(vertex, vertexBuildingState, cached) then Nil
+      board.vertices.flatMap { vertex =>
+        if !distanceRuleOk(vertex, vertexBuildingState, board) then Nil
         else
-          cached.edgesFromVertex.getOrElse(vertex, Nil).flatMap { edge =>
+          board.edgesFromVertex.getOrElse(vertex, Nil).flatMap { edge =>
             if edgeBuildingState.map.contains(edge) then Nil
             else Seq(InitialPlacementMove(vertex, edge, player))
           }
@@ -36,7 +35,7 @@ object SetupValidator:
   def distanceRuleOk(
     vertex: Vertex,
     vertexBuildingState: VertexBuildingState[BaseVertexBuilding],
-    cached: CachedBoard[Resource]
+    board: BaseBoard[Resource]
   ): Boolean =
     emptyVertex(vertex, vertexBuildingState) &&
-      cached.neighbors.getOrElse(vertex, Nil).forall(v => !vertexBuildingState.map.contains(v))
+      board.neighbors.getOrElse(vertex, Nil).forall(v => !vertexBuildingState.map.contains(v))

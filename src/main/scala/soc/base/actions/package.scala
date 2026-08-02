@@ -1,6 +1,7 @@
 package soc.base
 
 import game.{GameState, InventorySet}
+import soc.base.BaseGame.{BaseEdgeBuilding, BaseVertexBuilding}
 import soc.base.state.*
 import soc.core.*
 import soc.core.ResourceSet.*

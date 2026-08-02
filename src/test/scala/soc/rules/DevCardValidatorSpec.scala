@@ -16,7 +16,7 @@ import soc.rules.validators.DevCardValidator
 
 class DevCardValidatorSpec extends AnyFunSpec with Matchers:
 
-  private val cached = new CachedBoard[Resource](BaseGameFixtures.perfectInfoFixture.board)
+  private val board = BaseGameFixtures.perfectInfoFixture.board
 
   private def stateWith(inventory: Map[Int, Resources] = Map.empty,
                         devCards: Map[Int, Seq[(DevelopmentCard, Int)]] = Map.empty,
@@ -77,7 +77,7 @@ class DevCardValidatorSpec extends AnyFunSpec with Matchers:
       val state = stateWith(devCards = Map(0 -> Seq((Knight, 1))), turn = 2)
       val devView = new PerfectInfoDevCardView(state)
       val moves = DevCardValidator.perfectPlayKnightMoves(
-        0, Nil, devView, 2, state.robberLocation, cached, state.vertexBuildingState,
+        0, Nil, devView, 2, state.robberLocation, board, state.vertexBuildingState,
         new PerfectInfoResourceView(state), _ => Some(Wood)
       )
       moves should not be empty
@@ -106,7 +106,7 @@ class DevCardValidatorSpec extends AnyFunSpec with Matchers:
         edgeBuildingState = EdgeBuildingState(Map(Edge(Vertex(40), Vertex(41)) -> PlayerBuilding(0, Road)))
       )
       val devView = new PerfectInfoDevCardView(state)
-      val moves = DevCardValidator.playRoadBuilderMoves(0, Nil, devView, 2, state.edgeBuildingState, state.vertexBuildingState, cached)
+      val moves = DevCardValidator.playRoadBuilderMoves(0, Nil, devView, 2, state.edgeBuildingState, state.vertexBuildingState, board)
       moves should not be empty
       moves.exists(_.edge2.isEmpty) shouldBe true
       moves.exists(_.edge2.nonEmpty) shouldBe true

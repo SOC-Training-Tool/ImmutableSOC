@@ -203,7 +203,7 @@ class EndToEndSpec extends AnyFunSpec with Matchers:
       PerfectInfoLegalMoves.isTerminal(state) shouldBe true
       PerfectInfoLegalMoves.winners(state) should not be empty
       result.moves should be > 0
-      state.turn.t should be > 0
+      state.turn.number should be > 0
       state.setupPlacementOrder.placements.length shouldBe players * 2
       state.playerPoints.points.keySet should contain allOf (0, 1, 2, 3)
       result.phasesSeen should contain (TurnPhase.Setup)
@@ -220,7 +220,7 @@ class EndToEndSpec extends AnyFunSpec with Matchers:
       PublicInfoLegalMoves.isTerminal(state) shouldBe true
       PublicInfoLegalMoves.winners(state) should not be empty
       result.moves should be > 0
-      state.turn.t should be > 0
+      state.turn.number should be > 0
       state.setupPlacementOrder.placements.length shouldBe players * 2
       state.playerPoints.points.keySet should contain allOf (0, 1, 2, 3)
       result.phasesSeen should contain (TurnPhase.Setup)

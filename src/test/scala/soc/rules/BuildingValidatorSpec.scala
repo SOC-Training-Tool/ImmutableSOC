@@ -15,7 +15,7 @@ import soc.rules.validators.BuildingValidator
 
 class BuildingValidatorSpec extends AnyFunSpec with Matchers:
 
-  private val cached = new CachedBoard[Resource](BaseGameFixtures.perfectInfoFixture.board)
+  private val board = BaseGameFixtures.perfectInfoFixture.board
 
   private def stateWith(vertex: Map[Vertex, PlayerBuilding[BaseVertexBuilding]] = Map.empty,
                         edge: Map[Edge, PlayerBuilding[BaseEdgeBuilding]] = Map.empty,
@@ -35,7 +35,7 @@ class BuildingValidatorSpec extends AnyFunSpec with Matchers:
         inventory = Map(0 -> ResourceSet(wo = 1))
       )
       val inv = new PerfectInfoResourceView(state)
-      BuildingValidator.roadMoves(0, inv, state.edgeBuildingState, state.vertexBuildingState, cached) shouldBe empty
+      BuildingValidator.roadMoves(0, inv, state.edgeBuildingState, state.vertexBuildingState, board) shouldBe empty
 
     it("returns edges connected to the player's network"):
       val state = stateWith(
@@ -44,7 +44,7 @@ class BuildingValidatorSpec extends AnyFunSpec with Matchers:
         inventory = Map(0 -> ResourceSet(wo = 1, br = 1))
       )
       val inv = new PerfectInfoResourceView(state)
-      val moves = BuildingValidator.roadMoves(0, inv, state.edgeBuildingState, state.vertexBuildingState, cached)
+      val moves = BuildingValidator.roadMoves(0, inv, state.edgeBuildingState, state.vertexBuildingState, board)
       moves.map(_.edge).toSet shouldBe Set(
         Edge(Vertex(40), Vertex(39)),
         Edge(Vertex(17), Vertex(40)),
@@ -58,7 +58,7 @@ class BuildingValidatorSpec extends AnyFunSpec with Matchers:
         inventory = Map(0 -> ResourceSet(wo = 1, br = 1))
       )
       val inv = new PerfectInfoResourceView(state)
-      val moves = BuildingValidator.roadMoves(0, inv, state.edgeBuildingState, state.vertexBuildingState, cached)
+      val moves = BuildingValidator.roadMoves(0, inv, state.edgeBuildingState, state.vertexBuildingState, board)
       moves.map(_.edge).toSet should not contain (Edge(Vertex(0), Vertex(1)))
       moves.map(_.edge).toSet should not contain (Edge(Vertex(30), Vertex(47)))
 
@@ -72,7 +72,7 @@ class BuildingValidatorSpec extends AnyFunSpec with Matchers:
         inventory = Map(0 -> ResourceSet(wo = 1, br = 1))
       )
       val inv = new PerfectInfoResourceView(state)
-      val moves = BuildingValidator.roadMoves(0, inv, state.edgeBuildingState, state.vertexBuildingState, cached)
+      val moves = BuildingValidator.roadMoves(0, inv, state.edgeBuildingState, state.vertexBuildingState, board)
       moves.map(_.edge) should not contain (Edge(Vertex(41), Vertex(42)))
 
     it("respects the 15-road piece limit"):
@@ -83,7 +83,7 @@ class BuildingValidatorSpec extends AnyFunSpec with Matchers:
         inventory = Map(0 -> ResourceSet(wo = 1, br = 1))
       )
       val inv = new PerfectInfoResourceView(state)
-      BuildingValidator.roadMoves(0, inv, state.edgeBuildingState, state.vertexBuildingState, cached) shouldBe empty
+      BuildingValidator.roadMoves(0, inv, state.edgeBuildingState, state.vertexBuildingState, board) shouldBe empty
 
   describe("settlementMoves"):
 
@@ -93,7 +93,7 @@ class BuildingValidatorSpec extends AnyFunSpec with Matchers:
         inventory = Map(0 -> ResourceSet(wo = 1, br = 1, wh = 1, sh = 1))
       )
       val inv = new PerfectInfoResourceView(state)
-      val moves = BuildingValidator.settlementMoves(0, inv, state.vertexBuildingState, state.edgeBuildingState, cached)
+      val moves = BuildingValidator.settlementMoves(0, inv, state.vertexBuildingState, state.edgeBuildingState, board)
       moves.map(_.vertex) should not contain (Vertex(40))
 
     it("enforces the distance rule and the 5-piece settlement limit"):
@@ -103,7 +103,7 @@ class BuildingValidatorSpec extends AnyFunSpec with Matchers:
         inventory = Map(0 -> ResourceSet(wo = 1, br = 1, wh = 1, sh = 1))
       )
       val inv = new PerfectInfoResourceView(state)
-      val moves = BuildingValidator.settlementMoves(0, inv, state.vertexBuildingState, state.edgeBuildingState, cached)
+      val moves = BuildingValidator.settlementMoves(0, inv, state.vertexBuildingState, state.edgeBuildingState, board)
       moves shouldBe empty
 
     it("returns legal settlement vertices when affordable and connected"):
@@ -117,7 +117,7 @@ class BuildingValidatorSpec extends AnyFunSpec with Matchers:
         inventory = Map(0 -> ResourceSet(wo = 1, br = 1, wh = 1, sh = 1))
       )
       val inv = new PerfectInfoResourceView(state)
-      val moves = BuildingValidator.settlementMoves(0, inv, state.vertexBuildingState, state.edgeBuildingState, cached)
+      val moves = BuildingValidator.settlementMoves(0, inv, state.vertexBuildingState, state.edgeBuildingState, board)
       moves.map(_.vertex).toSet should contain (Vertex(43))
       moves.map(_.vertex) should not contain (Vertex(42))
 
@@ -129,7 +129,7 @@ class BuildingValidatorSpec extends AnyFunSpec with Matchers:
         inventory = Map(0 -> ResourceSet(or = 3, wh = 2))
       )
       val inv = new PerfectInfoResourceView(state)
-      BuildingValidator.cityMoves(0, inv, state.vertexBuildingState, cached) shouldBe empty
+      BuildingValidator.cityMoves(0, inv, state.vertexBuildingState, board) shouldBe empty
 
     it("returns city upgrades for owned settlements when affordable"):
       val state = stateWith(
@@ -137,7 +137,7 @@ class BuildingValidatorSpec extends AnyFunSpec with Matchers:
         inventory = Map(0 -> ResourceSet(or = 3, wh = 2))
       )
       val inv = new PerfectInfoResourceView(state)
-      val moves = BuildingValidator.cityMoves(0, inv, state.vertexBuildingState, cached)
+      val moves = BuildingValidator.cityMoves(0, inv, state.vertexBuildingState, board)
       moves.map(_.vertex) shouldBe Seq(Vertex(41))
 
     it("respects the 4-city piece limit"):
@@ -147,7 +147,7 @@ class BuildingValidatorSpec extends AnyFunSpec with Matchers:
         inventory = Map(0 -> ResourceSet(or = 3, wh = 2))
       )
       val inv = new PerfectInfoResourceView(state)
-      BuildingValidator.cityMoves(0, inv, state.vertexBuildingState, cached) shouldBe empty
+      BuildingValidator.cityMoves(0, inv, state.vertexBuildingState, board) shouldBe empty
 
     it("requires ore and wheat"):
       val state = stateWith(
@@ -155,4 +155,4 @@ class BuildingValidatorSpec extends AnyFunSpec with Matchers:
         inventory = Map(0 -> ResourceSet(or = 3))
       )
       val inv = new PerfectInfoResourceView(state)
-      BuildingValidator.cityMoves(0, inv, state.vertexBuildingState, cached) shouldBe empty
+      BuildingValidator.cityMoves(0, inv, state.vertexBuildingState, board) shouldBe empty

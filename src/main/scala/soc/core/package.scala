@@ -56,4 +56,7 @@ package object core:
   case object City       extends BoardBuilding[Vertex]
   case object Road       extends BoardBuilding[Edge]
 
+  type VertexBuilding = City.type | Settlement.type
+  type EdgeBuilding   = Road.type
+
 

@@ -60,7 +60,7 @@ object SOCBoard:
       }
     }.toMap
 
-    lazy val neighboringVertices: Map[Vertex, Seq[Vertex]] = vertices.map { vertex =>
+    lazy val neighbors: Map[Vertex, Seq[Vertex]] = vertices.map { vertex =>
       vertex -> edgesFromVertex(vertex).flatMap {
         case Edge(`vertex`, v) => Seq(v)
         case Edge(v, `vertex`) => Seq(v)

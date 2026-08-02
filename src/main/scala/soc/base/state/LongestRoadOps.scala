@@ -34,7 +34,7 @@ private[soc] class LongestRoadOps[Res, BOARD, VB, EB](board: BOARD, edgeBuilding
 
       def fromVertex(vertex: Vertex): List[Vertex] = if (vertexBuildingMap.map.get(vertex).fold(true)(_.player == playerId)) {
         board
-          .neighboringVertices(vertex)
+          .neighbors(vertex)
           .filterNot(v => visited.contains(Edge(vertex, v)))
           .filter(v => edgeBuildingMap.map.get(Edge(vertex, v)).fold(false)(_.player == playerId))
           .toList

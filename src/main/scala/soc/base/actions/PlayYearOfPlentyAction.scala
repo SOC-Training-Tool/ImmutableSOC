@@ -21,5 +21,5 @@ class PlayYearOfPlentyAction extends GameAction[PlayYearOfPlentyMove[Resource], 
     PlayYearOfPlentyOutput(
       bankLost     = Bank.Take(inv),
       playerGained = Gain(move.player, inv),
-      cardPlayed   = PlayCard(DevelopmentCards.YEAR_OF_PLENTY, move.player, input.turn.t)
+      cardPlayed   = PlayCard(DevelopmentCards.YEAR_OF_PLENTY, move.player, input.turn.number)
     )

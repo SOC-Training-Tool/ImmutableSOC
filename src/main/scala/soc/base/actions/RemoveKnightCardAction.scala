@@ -13,5 +13,5 @@ case class RemoveKnightCardOutput(
 class RemoveKnightCardAction extends GameAction[Int, TurnInput, RemoveKnightCardOutput]:
   def apply(player: Int, input: TurnInput): RemoveKnightCardOutput =
     RemoveKnightCardOutput(
-      cardPlayed = PlayCard(Knight, player, input.turn.t)
+      cardPlayed = PlayCard(Knight, player, input.turn.number)
     )

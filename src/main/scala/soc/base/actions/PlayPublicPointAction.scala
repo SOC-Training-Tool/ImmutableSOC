@@ -17,5 +17,5 @@ class PlayPublicPointAction extends GameAction[PlayPointMove, TurnInput, PlayPub
   def apply(move: PlayPointMove, input: TurnInput): PlayPublicPointOutput =
     PlayPublicPointOutput(
       pointGained = PlayerPoints.Increment(move.player),
-      cardPlayed  = PlayCard(DevelopmentCards.POINT, move.player, input.turn.t)
+      cardPlayed  = PlayCard(DevelopmentCards.POINT, move.player, input.turn.number)
     )
